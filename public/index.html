@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Échecs Atomiques Pro</title>
+  <title>Échecs Atomiques Pro + Timers</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
@@ -13,11 +13,9 @@
     .history-scroll::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
     .move-dot { width: 12px; height: 12px; background-color: rgba(0, 0, 0, 0.2); border-radius: 50%; }
     .capture-ring { width: 40px; height: 40px; border: 4px solid rgba(255, 0, 0, 0.2); border-radius: 50%; }
-    
-    /* Styles pour les coordonnées */
     .coord { font-size: 10px; font-weight: bold; color: #94a3b8; display: flex; align-items: center; justify-content: center; }
-    .coord-row { width: 20px; }
-    .coord-col { height: 20px; }
+    .timer-box { font-family: 'Courier New', monospace; transition: all 0.3s; }
+    .timer-active { background-color: #f59e0b !important; color: #000 !important; transform: scale(1.05); }
   </style>
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
@@ -53,6 +51,11 @@
     let kingMoved = { white: false, black: false };
     let rookMoved = { whiteKingSide: false, whiteQueenSide: false, blackKingSide: false, blackQueenSide: false };
 
+    // Gestion du temps
+    let selectedTimeLimit = 300; // 5 min par défaut
+    let timers = { white: 300, black: 300 };
+    let timerInterval = null;
+
     const pieceSymbols = {
       'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟',
       'K': '♔\uFE0E', 'Q': '♕\uFE0E', 'R': '♖\uFE0E', 'B': '♗\uFE0E', 'N': '♘\uFE0E', 'P': '♙\uFE0E'
@@ -77,6 +80,29 @@
     function getPieceColor(piece) { return isWhitePiece(piece) ? 'white' : 'black'; }
     function toAlgebraic(row, col) { return ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'][col] + (8 - row); }
 
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (gameOver) return clearInterval(timerInterval);
+        timers[currentPlayer]--;
+        if (timers[currentPlayer] <= 0) {
+          timers[currentPlayer] = 0;
+          gameOver = currentPlayer === 'white' ? 'black' : 'white';
+          clearInterval(timerInterval);
+        }
+        render();
+      }, 1000);
+    }
+
+    function formatTime(seconds) {
+      const min = Math.floor(seconds / 60);
+      const sec = seconds % 60;
+      return `${min}:${sec.toString().padStart(2, '0')}`;
+    }
+
+    // --- Fonctions de logique du jeu (checkBasicMove, applyAtomicExplosion, etc. restent identiques) ---
+    // (Incluses pour que le code soit prêt à copier-coller)
+
     function isSquareAttacked(currentBoard, targetRow, targetCol, defenderColor) {
       const attackerColor = defenderColor === 'white' ? 'black' : 'white';
       for (let r = 0; r < 8; r++) {
@@ -94,7 +120,6 @@
       const [fR, fC] = from; const [tR, tC] = to;
       const rowDiff = Math.abs(tR - fR); const colDiff = Math.abs(tC - fC);
       const type = piece.toLowerCase(); const target = currentBoard[tR][tC];
-
       if (type === 'p') {
         const dir = isWhitePiece(piece) ? -1 : 1;
         if (ignoreSafety) return tR === fR + dir && colDiff === 1;
@@ -111,28 +136,6 @@
       if (type === 'q') return (rowDiff === colDiff || fR === tR || fC === tC) && isPathClear(currentBoard, from, to);
       if (type === 'k') return rowDiff <= 1 && colDiff <= 1;
       return false;
-    }
-
-    function canCastle(currentBoard, color, side) {
-      if (kingMoved[color]) return false;
-      const row = color === 'white' ? 7 : 0;
-      if (isSquareAttacked(currentBoard, row, 4, color)) return false;
-      if (side === 'kingside') {
-        if (rookMoved[color + 'KingSide'] || currentBoard[row][5] || currentBoard[row][6]) return false;
-        return !isSquareAttacked(currentBoard, row, 5, color) && !isSquareAttacked(currentBoard, row, 6, color);
-      } else {
-        if (rookMoved[color + 'QueenSide'] || currentBoard[row][1] || currentBoard[row][2] || currentBoard[row][3]) return false;
-        return !isSquareAttacked(currentBoard, row, 3, color) && !isSquareAttacked(currentBoard, row, 2, color);
-      }
-    }
-
-    function isMoveSafe(currentBoard, from, to, piece) {
-      const myColor = getPieceColor(piece);
-      const futureBoard = getSimulatedBoard(currentBoard, from, to, piece);
-      if (!findKing(futureBoard, myColor === 'white' ? 'black' : 'white')) return true;
-      const myKingPos = findKing(futureBoard, myColor);
-      if (!myKingPos) return false;
-      return !isSquareAttacked(futureBoard, myKingPos[0], myKingPos[1], myColor);
     }
 
     function isPathClear(board, from, to) {
@@ -181,12 +184,6 @@
       return { newBoard, explosionSquares };
     }
 
-    function canCaptureEnPassant(currBoard, from, to) {
-      if (!lastMove || currBoard[from[0]][from[1]].toLowerCase() !== 'p') return false;
-      const [lFR, lFC] = lastMove.from; const [lTR, lTC] = lastMove.to;
-      return lastMove.piece.toLowerCase() === 'p' && Math.abs(lFR - lTR) === 2 && lTR === from[0] && lTC === to[1];
-    }
-
     function findKing(currentBoard, color) {
       const target = color === 'white' ? 'K' : 'k';
       for (let r = 0; r < 8; r++) { for (let c = 0; c < 8; c++) if (currentBoard[r][c] === target) return [r, c]; }
@@ -200,6 +197,34 @@
       if (!wK) return 'black';
       if (!bK) return 'white';
       return null;
+    }
+
+    function canCaptureEnPassant(currBoard, from, to) {
+      if (!lastMove || currBoard[from[0]][from[1]].toLowerCase() !== 'p') return false;
+      const [lFR, lFC] = lastMove.from; const [lTR, lTC] = lastMove.to;
+      return lastMove.piece.toLowerCase() === 'p' && Math.abs(lFR - lTR) === 2 && lTR === from[0] && lTC === to[1];
+    }
+
+    function canCastle(currentBoard, color, side) {
+      if (kingMoved[color]) return false;
+      const row = color === 'white' ? 7 : 0;
+      if (isSquareAttacked(currentBoard, row, 4, color)) return false;
+      if (side === 'kingside') {
+        if (rookMoved[color + 'KingSide'] || currentBoard[row][5] || currentBoard[row][6]) return false;
+        return !isSquareAttacked(currentBoard, row, 5, color) && !isSquareAttacked(currentBoard, row, 6, color);
+      } else {
+        if (rookMoved[color + 'QueenSide'] || currentBoard[row][1] || currentBoard[row][2] || currentBoard[row][3]) return false;
+        return !isSquareAttacked(currentBoard, row, 3, color) && !isSquareAttacked(currentBoard, row, 2, color);
+      }
+    }
+
+    function isMoveSafe(currentBoard, from, to, piece) {
+      const myColor = getPieceColor(piece);
+      const futureBoard = getSimulatedBoard(currentBoard, from, to, piece);
+      if (!findKing(futureBoard, myColor === 'white' ? 'black' : 'white')) return true;
+      const myKingPos = findKing(futureBoard, myColor);
+      if (!myKingPos) return false;
+      return !isSquareAttacked(futureBoard, myKingPos[0], myKingPos[1], myColor);
     }
 
     function getValidMoves(fromRow, fromCol) {
@@ -231,12 +256,10 @@
         const movingPiece = board[fR][fC];
         if (targetPiece && getPieceColor(targetPiece) === currentPlayer) {
           selectedSquare = (row === fR && col === fC) ? null : [row, col];
-          render();
-          return;
+          render(); return;
         }
         const validMoves = getValidMoves(fR, fC);
-        const isValid = validMoves.some(m => m[0] === row && m[1] === col);
-        if (isValid) {
+        if (validMoves.some(m => m[0] === row && m[1] === col)) {
           const isCap = board[row][col] !== null;
           const isEP = canCaptureEnPassant(board, selectedSquare, [row, col]);
           const isCastling = movingPiece.toLowerCase() === 'k' && Math.abs(col - fC) === 2;
@@ -275,26 +298,22 @@
           } else { render(); }
           gameOver = checkGameOver(board);
           if (gameMode === 'online') {
-             await updateDoc(doc(db, 'games', gameCode), { board: board.flat(), currentPlayer, lastMove, kingMoved, rookMoved, moveHistory });
+             await updateDoc(doc(db, 'games', gameCode), { board: board.flat(), currentPlayer, lastMove, kingMoved, rookMoved, moveHistory, timers });
           }
         } else {
-            const grid = document.getElementById('chess-grid');
-            grid.classList.add('shake-error');
-            setTimeout(() => grid.classList.remove('shake-error'), 400);
-            selectedSquare = null;
-            render();
+            selectedSquare = null; render();
         }
       } else if (targetPiece && getPieceColor(targetPiece) === currentPlayer) {
-        selectedSquare = [row, col];
-        render();
+        selectedSquare = [row, col]; render();
       }
     }
 
     async function createGame() {
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       gameCode = code; playerColor = 'white'; gameMode = 'online';
-      await setDoc(doc(db, 'games', code), { board: createInitialBoard().flat(), currentPlayer: 'white', playerWhite: userId, kingMoved, rookMoved, moveHistory: [] });
-      startSync();
+      timers = { white: selectedTimeLimit, black: selectedTimeLimit };
+      await setDoc(doc(db, 'games', code), { board: createInitialBoard().flat(), currentPlayer: 'white', playerWhite: userId, kingMoved, rookMoved, moveHistory: [], timers });
+      startSync(); startTimer();
     }
 
     async function joinGame() {
@@ -303,7 +322,7 @@
       if (!snap.exists() || snap.data().playerBlack) return alert("Code invalide");
       gameCode = code; playerColor = 'black'; gameMode = 'online';
       await updateDoc(doc(db, 'games', code), { playerBlack: userId, playerBlackActive: serverTimestamp() });
-      startSync();
+      startSync(); startTimer();
     }
 
     function startSync() {
@@ -313,6 +332,7 @@
         currentPlayer = d.currentPlayer; lastMove = d.lastMove;
         kingMoved = d.kingMoved; rookMoved = d.rookMoved;
         moveHistory = d.moveHistory || [];
+        timers = d.timers || timers;
         opponentConnected = playerColor === 'white' ? !!d.playerBlack : !!d.playerWhite;
         gameOver = checkGameOver(board); render();
       });
@@ -323,106 +343,98 @@
       if (gameMode === 'menu') {
         app.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
           <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
-            <h1 class="text-4xl font-bold text-white mb-8">☢️ ATOMIC CHESS</h1>
-            <button onclick="window.startLocal()" class="w-full bg-purple-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-purple-700 transition transform hover:scale-105">LOCAL</button>
-            <button onclick="window.createGame()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-blue-700 transition transform hover:scale-105">CRÉER EN LIGNE</button>
+            <h1 class="text-4xl font-bold text-white mb-6">☢️ ATOMIC CHESS</h1>
+            <div class="mb-6">
+                <p class="text-slate-400 text-sm mb-2 uppercase tracking-widest">Choisir le temps</p>
+                <div class="grid grid-cols-4 gap-2">
+                    ${[1, 3, 5, 10].map(m => `
+                        <button onclick="window.setTime(${m * 60})" class="py-2 rounded bg-slate-700 hover:bg-slate-600 ${selectedTimeLimit === m*60 ? 'ring-2 ring-yellow-400 text-yellow-400' : 'text-white'}">
+                            ${m}m
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+            <button onclick="window.startLocal()" class="w-full bg-purple-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-purple-700 transition">LOCAL</button>
+            <button onclick="window.createGame()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-blue-700 transition">CRÉER EN LIGNE</button>
             <input type="text" id="inputCode" placeholder="Code à 6 chiffres" class="w-full p-4 rounded-xl mb-4 text-center font-bold text-slate-900">
-            <button onclick="window.joinGame()" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition transform hover:scale-105">REJOINDRE</button>
+            <button onclick="window.joinGame()" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition">REJOINDRE</button>
           </div>
         </div>`;
         return;
       }
 
       const validMoves = selectedSquare ? getValidMoves(selectedSquare[0], selectedSquare[1]) : [];
-      const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-      const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
-
-      // On inverse les labels si on joue les noirs
-      const displayFiles = (playerColor === 'black') ? [...files].reverse() : files;
-      const displayRanks = (playerColor === 'black') ? [...ranks].reverse() : ranks;
-
-      const boardCells = [];
       const displayBoard = (playerColor === 'black') ? board.slice().reverse().map(r => r.slice().reverse()) : board;
-      
+      const displayRanks = (playerColor === 'black') ? ['1','2','3','4','5','6','7','8'] : ['8','7','6','5','4','3','2','1'];
+      const displayFiles = (playerColor === 'black') ? ['h','g','f','e','d','c','b','a'] : ['a','b','c','d','e','f','g','h'];
+
+      let boardHTML = [];
       displayBoard.forEach((row, rIdx) => {
-        const actualR = (playerColor === 'black') ? 7 - rIdx : rIdx;
-        
-        // Label de ligne (Chiffre)
-        boardCells.push(`<div class="coord coord-row">${displayRanks[rIdx]}</div>`);
-        
+        boardHTML.push(`<div class="coord coord-row">${displayRanks[rIdx]}</div>`);
         row.forEach((piece, cIdx) => {
+          const actualR = (playerColor === 'black') ? 7 - rIdx : rIdx;
           const actualC = (playerColor === 'black') ? 7 - cIdx : cIdx;
           const isLight = (actualR + actualC) % 2 === 0;
           const isSel = selectedSquare && selectedSquare[0] === actualR && selectedSquare[1] === actualC;
           const isExplo = explosions.some(e => e[0] === actualR && e[1] === actualC);
           const isPossibleMove = validMoves.some(m => m[0] === actualR && m[1] === actualC);
-          const hasPiece = piece !== null;
-
-          boardCells.push(`<div onclick="window.handleSquareClick(${actualR}, ${actualC})" 
+          boardHTML.push(`<div onclick="window.handleSquareClick(${actualR}, ${actualC})" 
                  class="relative w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center text-3xl sm:text-5xl cursor-pointer
                  ${isLight ? 'bg-[#eeeed2]' : 'bg-[#769656]'} ${isSel ? 'bg-[#f6f669]' : ''} 
                  ${isExplo ? 'bg-red-500 animate-pulse' : ''}">
-                 ${isPossibleMove ? (hasPiece ? `<div class="capture-ring absolute"></div>` : `<div class="move-dot"></div>`) : ''}
-                 <span class="chess-piece relative z-10" 
-                       style="color: ${isWhitePiece(piece) ? '#FFF' : '#000'}; 
-                       text-shadow: ${isWhitePiece(piece) ? '0 0 2px #000, 0 0 5px rgba(0,0,0,0.5)' : 'none'};">
+                 ${isPossibleMove ? (piece ? `<div class="capture-ring absolute"></div>` : `<div class="move-dot"></div>`) : ''}
+                 <span class="chess-piece relative z-10" style="color: ${isWhitePiece(piece) ? '#FFF' : '#000'}; text-shadow: ${isWhitePiece(piece) ? '0 0 2px #000, 0 0 5px rgba(0,0,0,0.5)' : 'none'};">
                     ${piece ? pieceSymbols[piece] : ''}
                  </span>
             </div>`);
         });
       });
+      boardHTML.push(`<div></div>`);
+      displayFiles.forEach(f => boardHTML.push(`<div class="coord coord-col">${f}</div>`));
 
-      // Ligne de labels de colonnes (Lettres)
-      boardCells.push(`<div></div>`); // Coin vide
-      displayFiles.forEach(f => boardCells.push(`<div class="coord coord-col">${f}</div>`));
-
-      let historyHTML = "";
-      for (let i = 0; i < moveHistory.length; i += 2) {
-        historyHTML += `<div class="flex border-b border-slate-700 py-1.5 text-xs sm:text-sm">
-            <span class="w-8 text-slate-500 font-mono">${Math.floor(i/2) + 1}.</span>
-            <span class="flex-1 font-bold text-white">${moveHistory[i]}</span>
-            <span class="flex-1 font-bold text-white">${moveHistory[i+1] || ""}</span>
-          </div>`;
-      }
+      const oppColor = playerColor === 'white' ? 'black' : 'white';
+      const myColor = playerColor || 'white';
 
       app.innerHTML = `
         <div class="min-h-screen bg-slate-900 text-white p-2 sm:p-4 flex flex-col items-center">
-          <div class="mb-4 text-center">
-            <h2 class="text-xl sm:text-2xl font-bold uppercase tracking-widest ${currentPlayer === 'white' ? 'text-white' : 'text-slate-400'}">
-              ${gameOver ? 'Fin de partie' : (currentPlayer === 'white' ? 'Blancs' : 'Noirs')}
-            </h2>
+          <div class="timer-box w-full max-w-[350px] sm:max-w-[512px] flex justify-between items-center mb-2 px-6 py-2 bg-slate-800 rounded-lg ${currentPlayer === oppColor ? 'timer-active' : ''}">
+            <span class="font-bold uppercase">${oppColor}</span>
+            <span class="text-2xl font-black">${formatTime(timers[oppColor])}</span>
           </div>
-          
-          <div class="flex flex-col lg:flex-row gap-6 items-center lg:items-start">
+
+          <div class="flex flex-col lg:flex-row gap-6 items-center">
             <div id="chess-grid" class="grid grid-cols-[20px_repeat(8,1fr)] bg-slate-800 p-1 border-2 border-slate-700 shadow-2xl rounded-sm">
-              ${boardCells.join('')}
+              ${boardHTML.join('')}
             </div>
-
-            <div class="w-full max-w-[350px] lg:w-72 bg-slate-800 rounded-xl p-4 shadow-xl flex flex-col h-[200px] lg:h-[512px]">
-              <h3 class="font-bold border-b border-slate-600 pb-2 mb-2 flex justify-between items-center">
-                <span>📜 HISTORIQUE</span>
-                <span class="text-[10px] bg-slate-700 px-2 py-0.5 rounded">${moveHistory.length}</span>
-              </h3>
-              <div class="history-scroll overflow-y-auto flex-1 pr-1">${moveHistory.length === 0 ? '<p class="text-slate-500 text-center mt-10">Début de partie</p>' : historyHTML}</div>
+            
+            <div class="w-full max-w-[350px] lg:w-72 bg-slate-800 rounded-xl p-4 shadow-xl flex flex-col h-[150px] lg:h-[512px]">
+              <h3 class="font-bold border-b border-slate-600 pb-2 mb-2">📜 HISTORIQUE</h3>
+              <div class="history-scroll overflow-y-auto flex-1 text-sm">
+                ${moveHistory.map((m, i) => i % 2 === 0 ? `<div class="py-1"><span class="text-slate-500 mr-2">${Math.floor(i/2)+1}.</span><b>${m}</b> ${moveHistory[i+1] || ''}</div>` : '').join('')}
+              </div>
             </div>
           </div>
 
-          <div class="mt-6 flex gap-4">
-            <button onclick="location.reload()" class="bg-slate-700 px-6 py-2 rounded-lg hover:bg-slate-600 transition text-sm">MENU</button>
-            ${gameCode ? `<div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-600 text-sm">CODE: <span class="text-yellow-400 font-mono">${gameCode}</span></div>` : ''}
+          <div class="timer-box w-full max-w-[350px] sm:max-w-[512px] flex justify-between items-center mt-2 px-6 py-2 bg-slate-800 rounded-lg ${currentPlayer === myColor ? 'timer-active' : ''}">
+            <span class="font-bold uppercase">${myColor} (VOUS)</span>
+            <span class="text-2xl font-black">${formatTime(timers[myColor])}</span>
           </div>
-          
-          ${gameOver ? `<div class="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 p-6 text-center">
-             <h1 class="text-5xl font-black text-white mb-2">${gameOver === 'draw' ? 'ÉGALITÉ' : (gameOver === 'white' ? 'BLANCS GAGNENT' : 'NOIRS GAGNENT')}</h1>
-             <p class="text-yellow-500 text-2xl font-bold mb-8 italic">Le Roi a été pulvérisé !</p>
-             <button onclick="location.reload()" class="bg-blue-600 text-white px-12 py-4 rounded-full font-bold text-xl hover:scale-110 transition shadow-lg">REJOUER</button>
+
+          <div class="mt-4 flex gap-4">
+            <button onclick="location.reload()" class="bg-slate-700 px-6 py-2 rounded-lg hover:bg-slate-600 text-sm">MENU</button>
+            ${gameCode ? `<div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-600 text-sm font-mono text-yellow-400">${gameCode}</div>` : ''}
+          </div>
+
+          ${gameOver ? `<div class="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 text-center">
+             <h1 class="text-5xl font-black mb-2">${gameOver === 'white' ? 'BLANCS GAGNENT' : 'NOIRS GAGNENT'}</h1>
+             <p class="text-yellow-500 text-2xl font-bold mb-8 italic">${timers[currentPlayer] <= 0 ? 'Temps écoulé !' : 'Explosion totale !'}</p>
+             <button onclick="location.reload()" class="bg-blue-600 px-12 py-4 rounded-full font-bold text-xl hover:scale-110 transition">REJOUER</button>
           </div>` : ''}
         </div>`;
-        
-        const historyDiv = document.querySelector('.history-scroll');
-        if (historyDiv) historyDiv.scrollTop = historyDiv.scrollHeight;
     }
-    window.startLocal = () => { gameMode = 'local'; render(); };
+
+    window.setTime = (t) => { selectedTimeLimit = t; render(); };
+    window.startLocal = () => { gameMode = 'local'; timers = { white: selectedTimeLimit, black: selectedTimeLimit }; startTimer(); render(); };
     window.createGame = createGame;
     window.joinGame = joinGame;
     window.handleSquareClick = handleSquareClick;
