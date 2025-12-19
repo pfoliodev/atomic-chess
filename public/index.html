@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Échecs Atomiques</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, serverTimestamp, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBunl4KWLRYW7i6L3tPfdgavR8LfxIttHU",
+      authDomain: "atomic-chess-590fb.firebaseapp.com",
+      projectId: "atomic-chess-590fb",
+      storageBucket: "atomic-chess-590fb.firebasestorage.app",
+      messagingSenderId: "693945967318",
+      appId: "1:693945967318:web:28061e17cdf44076259f77",
+      measurementId: "G-DFVEHRC7QB"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    let board = createInitialBoard();
+    let selectedSquare = null;
+    let currentPlayer = 'white';
+    let explosions = [];
+    let gameOver = null;
+    let moveHistory = [];
+    let gameMode = 'menu';
+    let gameCode = '';
+    let userId = null;
+    let playerColor = null;
+    let opponentConnected = false;
+    let unsubscribe = null;
+    let statusInterval = null;
+    let lastMove = null;
+    let castlingRights = { whiteKingSide: true, whiteQueenSide: true, blackKingSide: true, blackQueenSide: true };
+    let kingMoved = { white: false, black: false };
+    let rookMoved = { whiteKingSide: false, whiteQueenSide: false, blackKingSide: false, blackQueenSide: false };
+
+    const pieceSymbols = {
+      // On utilise les symboles PLEINS pour les deux camps
+      // C'est le CSS qui fera la différence de couleur
+      'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟', // Noirs
+      'K': '♚', 'Q': '♛', 'R': '♜', 'B': '♝', 'N': '♞', 'P': '♟'  // Blancs
+    };
+
+    signInAnonymously(auth).then((result) => {
+      userId = result.user.uid;
+    });
+
+    function createInitialBoard() {
+      return [
+        ['r','n','b','q','k','b','n','r'],
+        ['p','p','p','p','p','p','p','p'],
+        [null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null],
+        ['P','P','P','P','P','P','P','P'],
+        ['R','N','B','Q','K','B','N','R']
+      ];
+    }
+
+    function isWhitePiece(piece) {
+      return piece && piece === piece.toUpperCase();
+    }
+
+    function getPieceColor(piece) {
+      return isWhitePiece(piece) ? 'white' : 'black';
+    }
+
+    function canCastle(board, color, side) {
+      if (kingMoved[color]) return false;
+      
+      const row = color === 'white' ? 7 : 0;
+      const king = color === 'white' ? 'K' : 'k';
+      const rook = color === 'white' ? 'R' : 'r';
+      
+      if (board[row][4] !== king) return false;
+      
+      if (side === 'kingside') {
+        if (rookMoved[color === 'white' ? 'whiteKingSide' : 'blackKingSide']) return false;
+        if (board[row][7] !== rook) return false;
+        if (board[row][5] || board[row][6]) return false;
+        return true;
+      } else {
+        if (rookMoved[color === 'white' ? 'whiteQueenSide' : 'blackQueenSide']) return false;
+        if (board[row][0] !== rook) return false;
+        if (board[row][1] || board[row][2] || board[row][3]) return false;
+        return true;
+      }
+    }
+
+    function canCaptureEnPassant(board, from, to) {
+      const [fromRow, fromCol] = from;
+      const [toRow, toCol] = to;
+      const piece = board[fromRow][fromCol];
+      
+      if (piece.toLowerCase() !== 'p') return false;
+      if (!lastMove) return false;
+      
+      const direction = isWhitePiece(piece) ? -1 : 1;
+      const expectedRow = isWhitePiece(piece) ? 3 : 4;
+      
+      if (fromRow !== expectedRow) return false;
+      if (toRow !== fromRow + direction) return false;
+      if (Math.abs(toCol - fromCol) !== 1) return false;
+      
+      const [lastFromRow, lastFromCol] = lastMove.from;
+      const [lastToRow, lastToCol] = lastMove.to;
+      const lastPiece = lastMove.piece;
+      
+      if (lastPiece.toLowerCase() !== 'p') return false;
+      if (Math.abs(lastFromRow - lastToRow) !== 2) return false;
+      if (lastToCol !== toCol) return false;
+      if (lastToRow !== fromRow) return false;
+      
+      return true;
+    }
+
+    function isValidMove(board, from, to, piece) {
+      const [fromRow, fromCol] = from;
+      const [toRow, toCol] = to;
+      const targetPiece = board[toRow][toCol];
+      
+      if (targetPiece && getPieceColor(piece) === getPieceColor(targetPiece)) {
+        return false;
+      }
+
+      const rowDiff = Math.abs(toRow - fromRow);
+      const colDiff = Math.abs(toCol - fromCol);
+      const pieceType = piece.toLowerCase();
+
+      switch(pieceType) {
+        case 'p':
+          const direction = isWhitePiece(piece) ? -1 : 1;
+          const startRow = isWhitePiece(piece) ? 6 : 1;
+          
+          if (toCol === fromCol && !targetPiece) {
+            if (toRow === fromRow + direction) return true;
+            if (fromRow === startRow && toRow === fromRow + 2 * direction && !board[fromRow + direction][fromCol]) return true;
+          }
+          if (Math.abs(toCol - fromCol) === 1 && toRow === fromRow + direction) {
+            if (targetPiece) return true;
+            if (canCaptureEnPassant(board, from, to)) return true;
+          }
+          return false;
+
+        case 'n':
+          return (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
+
+        case 'b':
+          if (rowDiff !== colDiff) return false;
+          return isPathClear(board, from, to);
+
+        case 'r':
+          if (fromRow !== toRow && fromCol !== toCol) return false;
+          return isPathClear(board, from, to);
+
+        case 'q':
+          if (fromRow !== toRow && fromCol !== toCol && rowDiff !== colDiff) return false;
+          return isPathClear(board, from, to);
+
+        case 'k':
+          if (rowDiff <= 1 && colDiff <= 1) return true;
+          
+          // Castling
+          if (rowDiff === 0 && colDiff === 2) {
+            const color = getPieceColor(piece);
+            if (toCol === 6) return canCastle(board, color, 'kingside');
+            if (toCol === 2) return canCastle(board, color, 'queenside');
+          }
+          return false;
+
+        default:
+          return false;
+      }
+    }
+
+    function isPathClear(board, from, to) {
+      const [fromRow, fromCol] = from;
+      const [toRow, toCol] = to;
+      
+      const rowStep = toRow > fromRow ? 1 : toRow < fromRow ? -1 : 0;
+      const colStep = toCol > fromCol ? 1 : toCol < fromCol ? -1 : 0;
+      
+      let currentRow = fromRow + rowStep;
+      let currentCol = fromCol + colStep;
+      
+      while (currentRow !== toRow || currentCol !== toCol) {
+        if (board[currentRow][currentCol]) return false;
+        currentRow += rowStep;
+        currentCol += colStep;
+      }
+      
+      return true;
+    }
+
+    function applyAtomicExplosion(board, capturePos) {
+      const newBoard = board.map(row => [...row]);
+      const [row, col] = capturePos;
+      
+      newBoard[row][col] = null;
+      
+      const directions = [
+        [-1,-1], [-1,0], [-1,1],
+        [0,-1],          [0,1],
+        [1,-1],  [1,0],  [1,1]
+      ];
+      
+      const explosionSquares = [[row, col]];
+      
+      directions.forEach(([dRow, dCol]) => {
+        const newRow = row + dRow;
+        const newCol = col + dCol;
+        
+        if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
+          const piece = newBoard[newRow][newCol];
+          if (piece && piece.toLowerCase() !== 'p') {
+            newBoard[newRow][newCol] = null;
+            explosionSquares.push([newRow, newCol]);
+          }
+        }
+      });
+      
+      return { newBoard, explosionSquares };
+    }
+
+    function findKing(board, color) {
+      const kingSymbol = color === 'white' ? 'K' : 'k';
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          if (board[row][col] === kingSymbol) {
+            return [row, col];
+          }
+        }
+      }
+      return null;
+    }
+
+    function checkGameOver(board) {
+      const whiteKing = findKing(board, 'white');
+      const blackKing = findKing(board, 'black');
+      
+      if (!whiteKing && !blackKing) return 'draw';
+      if (!whiteKing) return 'black';
+      if (!blackKing) return 'white';
+      return null;
+    }
+
+    async function updatePlayerStatus() {
+      if (!gameCode || !userId || !playerColor) return;
+      
+      const gameRef = doc(db, 'games', gameCode);
+      const updateData = playerColor === 'white' 
+        ? { playerWhiteActive: serverTimestamp() }
+        : { playerBlackActive: serverTimestamp() };
+      
+      try {
+        await updateDoc(gameRef, updateData);
+      } catch (error) {
+        console.error('Error updating status:', error);
+      }
+    }
+
+    function startOnlineGame(code, color) {
+      gameCode = code;
+      playerColor = color;
+      gameMode = 'online';
+
+      const gameRef = doc(db, 'games', gameCode);
+      unsubscribe = onSnapshot(gameRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          board = flatToBoard(data.board);
+          currentPlayer = data.currentPlayer;
+          moveHistory = data.moves || [];
+          
+          if (data.lastMove) {
+            lastMove = data.lastMove;
+          }
+          
+          if (data.castlingRights) {
+            castlingRights = data.castlingRights;
+            kingMoved = data.kingMoved || { white: false, black: false };
+            rookMoved = data.rookMoved || { whiteKingSide: false, whiteQueenSide: false, blackKingSide: false, blackQueenSide: false };
+          }
+          
+          if (playerColor === 'white') {
+            opponentConnected = !!data.playerBlack && data.playerBlackActive;
+          } else {
+            opponentConnected = !!data.playerWhite && data.playerWhiteActive;
+          }
+          
+          const winner = checkGameOver(flatToBoard(data.board));
+          if (winner) {
+            gameOver = winner;
+          }
+          
+          render();
+        }
+      });
+
+      statusInterval = setInterval(() => {
+        updatePlayerStatus();
+      }, 3000);
+    }
+
+    function boardToFlat(board) {
+      return board.flat();
+    }
+
+    function flatToBoard(flat) {
+      const board = [];
+      for (let i = 0; i < 8; i++) {
+        board.push(flat.slice(i * 8, (i + 1) * 8));
+      }
+      return board;
+    }
+
+    async function createGame() {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const gameRef = doc(db, 'games', code);
+      
+      const initialBoard = createInitialBoard();
+      
+      await setDoc(gameRef, {
+        board: boardToFlat(initialBoard),
+        currentPlayer: 'white',
+        playerWhite: userId,
+        playerWhiteActive: serverTimestamp(),
+        playerBlack: null,
+        playerBlackActive: null,
+        moves: [],
+        lastMove: null,
+        castlingRights: { whiteKingSide: true, whiteQueenSide: true, blackKingSide: true, blackQueenSide: true },
+        kingMoved: { white: false, black: false },
+        rookMoved: { whiteKingSide: false, whiteQueenSide: false, blackKingSide: false, blackQueenSide: false },
+        createdAt: serverTimestamp()
+      });
+      
+      board = initialBoard;
+      currentPlayer = 'white';
+      lastMove = null;
+      castlingRights = { whiteKingSide: true, whiteQueenSide: true, blackKingSide: true, blackQueenSide: true };
+      kingMoved = { white: false, black: false };
+      rookMoved = { whiteKingSide: false, whiteQueenSide: false, blackKingSide: false, blackQueenSide: false };
+      startOnlineGame(code, 'white');
+      render();
+    }
+
+    async function joinGame() {
+      const inputCode = document.getElementById('inputCode').value;
+      
+      if (inputCode.length !== 6) {
+        alert('Code invalide ! Il doit contenir 6 chiffres.');
+        return;
+      }
+      
+      const gameRef = doc(db, 'games', inputCode);
+      const gameSnap = await getDoc(gameRef);
+      
+      if (!gameSnap.exists()) {
+        alert('Cette partie n\'existe pas !');
+        return;
+      }
+      
+      const gameData = gameSnap.data();
+      
+      if (gameData.playerBlack) {
+        alert('Cette partie est déjà pleine !');
+        return;
+      }
+      
+      await updateDoc(gameRef, {
+        playerBlack: userId,
+        playerBlackActive: serverTimestamp()
+      });
+      
+      board = flatToBoard(gameData.board);
+      currentPlayer = gameData.currentPlayer;
+      startOnlineGame(inputCode, 'black');
+      render();
+    }
+
+    async function handleSquareClick(row, col) {
+      if (gameOver) return;
+      
+      if (!Array.isArray(board[0])) {
+        board = flatToBoard(board);
+      }
+      
+      if (gameMode === 'online') {
+        if (!opponentConnected) return;
+        if (currentPlayer !== playerColor) return;
+      }
+
+      const piece = board[row][col];
+
+      if (selectedSquare) {
+        const [fromRow, fromCol] = selectedSquare;
+        const movingPiece = board[fromRow][fromCol];
+        
+        if (row === fromRow && col === fromCol) {
+          selectedSquare = null;
+          render();
+          return;
+        }
+
+        if (getPieceColor(movingPiece) === currentPlayer && isValidMove(board, selectedSquare, [row, col], movingPiece)) {
+          const isCapture = board[row][col] !== null;
+          const isEnPassant = canCaptureEnPassant(board, selectedSquare, [row, col]);
+          const isCastling = movingPiece.toLowerCase() === 'k' && Math.abs(col - fromCol) === 2;
+          
+          let newBoard;
+          let explosionSquares = [];
+
+          if (isCapture || isEnPassant) {
+            if (isEnPassant) {
+              const capturedPawnRow = isWhitePiece(movingPiece) ? row + 1 : row - 1;
+              const result = applyAtomicExplosion(board, [capturedPawnRow, col]);
+              newBoard = result.newBoard;
+              explosionSquares = result.explosionSquares;
+              newBoard[fromRow][fromCol] = null;
+            } else {
+              const result = applyAtomicExplosion(board, [row, col]);
+              newBoard = result.newBoard;
+              explosionSquares = result.explosionSquares;
+              newBoard[fromRow][fromCol] = null;
+            }
+          } else {
+            newBoard = board.map(row => [...row]);
+            newBoard[row][col] = movingPiece;
+            newBoard[fromRow][fromCol] = null;
+            
+            // Handle castling
+            if (isCastling) {
+              const rookFromCol = col === 6 ? 7 : 0;
+              const rookToCol = col === 6 ? 5 : 3;
+              newBoard[row][rookToCol] = newBoard[row][rookFromCol];
+              newBoard[row][rookFromCol] = null;
+            }
+          }
+
+          // Update castling rights
+          if (movingPiece.toLowerCase() === 'k') {
+            kingMoved[getPieceColor(movingPiece)] = true;
+          }
+          if (movingPiece.toLowerCase() === 'r') {
+            if (fromRow === 7 && fromCol === 0) rookMoved.whiteQueenSide = true;
+            if (fromRow === 7 && fromCol === 7) rookMoved.whiteKingSide = true;
+            if (fromRow === 0 && fromCol === 0) rookMoved.blackQueenSide = true;
+            if (fromRow === 0 && fromCol === 7) rookMoved.blackKingSide = true;
+          }
+
+          if (movingPiece.toLowerCase() === 'p' && (row === 0 || row === 7)) {
+            newBoard[row][col] = isWhitePiece(movingPiece) ? 'Q' : 'q';
+          }
+
+          const newMove = { from: selectedSquare, to: [row, col], piece: movingPiece, capture: isCapture };
+          const newMoves = [...moveHistory, newMove];
+          const nextPlayer = currentPlayer === 'white' ? 'black' : 'white';
+
+          board = newBoard;
+          selectedSquare = null;
+          moveHistory = newMoves;
+          currentPlayer = nextPlayer;
+          lastMove = newMove;
+          
+          if (explosionSquares.length > 0) {
+            explosions = explosionSquares;
+            render();
+            setTimeout(() => {
+              explosions = [];
+              render();
+            }, 800);
+          } else {
+            render();
+          }
+
+          const winner = checkGameOver(newBoard);
+          if (winner) {
+            gameOver = winner;
+            render();
+          }
+
+          if (gameMode === 'online' && gameCode) {
+            const gameRef = doc(db, 'games', gameCode);
+            await updateDoc(gameRef, {
+              board: boardToFlat(newBoard),
+              currentPlayer: nextPlayer,
+              moves: newMoves,
+              lastMove: newMove,
+              castlingRights,
+              kingMoved,
+              rookMoved
+            });
+          }
+        } else {
+          if (piece && getPieceColor(piece) === currentPlayer) {
+            selectedSquare = [row, col];
+            render();
+          }
+        }
+      } else {
+        if (piece && getPieceColor(piece) === currentPlayer) {
+          selectedSquare = [row, col];
+          render();
+        }
+      }
+    }
+
+    function resetGame() {
+      board = createInitialBoard();
+      selectedSquare = null;
+      currentPlayer = 'white';
+      explosions = [];
+      gameOver = null;
+      moveHistory = [];
+      lastMove = null;
+      castlingRights = { whiteKingSide: true, whiteQueenSide: true, blackKingSide: true, blackQueenSide: true };
+      kingMoved = { white: false, black: false };
+      rookMoved = { whiteKingSide: false, whiteQueenSide: false, blackKingSide: false, blackQueenSide: false };
+      
+      if (gameMode === 'online' && gameCode) {
+        const gameRef = doc(db, 'games', gameCode);
+        deleteDoc(gameRef);
+        
+        if (unsubscribe) unsubscribe();
+        if (statusInterval) clearInterval(statusInterval);
+      }
+      
+      gameMode = 'menu';
+      gameCode = '';
+      playerColor = null;
+      opponentConnected = false;
+      render();
+    }
+
+    function startLocal() {
+      gameMode = 'local';
+      board = createInitialBoard();
+      currentPlayer = 'white';
+      lastMove = null;
+      castlingRights = { whiteKingSide: true, whiteQueenSide: true, blackKingSide: true, blackQueenSide: true };
+      kingMoved = { white: false, black: false };
+      rookMoved = { whiteKingSide: false, whiteQueenSide: false, blackKingSide: false, blackQueenSide: false };
+      render();
+    }
+
+    function copyCode() {
+      navigator.clipboard.writeText(gameCode);
+      const btn = document.getElementById('copyBtn');
+      btn.innerHTML = '✓';
+      setTimeout(() => {
+        btn.innerHTML = '📋';
+      }, 2000);
+    }
+
+    function render() {
+      const app = document.getElementById('app');
+      
+      if (!Array.isArray(board[0]) || board.length === 64) {
+        board = flatToBoard(board.length === 64 ? board : boardToFlat(board));
+      }
+      
+      if (gameMode === 'menu') {
+        app.innerHTML = `
+          <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 md:p-8 flex items-center justify-center">
+            <div class="max-w-md w-full bg-slate-800 rounded-xl p-6 md:p-8 shadow-2xl">
+              <div class="text-center mb-6 md:mb-8">
+                <h1 class="text-3xl md:text-5xl font-bold text-white mb-2">🔥 ÉCHECS ATOMIQUES 🔥</h1>
+                <p class="text-sm md:text-base text-purple-300">Capture = BOOM 💥</p>
+              </div>
+
+              <div class="space-y-3 md:space-y-4">
+                <button onclick="startLocal()" class="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 md:py-4 rounded-lg font-bold text-base md:text-lg hover:from-purple-700 hover:to-pink-700 transition-all">
+                  🎮 Jouer en Local (2 Joueurs)
+                </button>
+
+                <button onclick="createGame()" class="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-3 md:py-4 rounded-lg font-bold text-base md:text-lg hover:from-blue-700 hover:to-cyan-700 transition-all">
+                  🌐 Créer une Partie en Ligne
+                </button>
+
+                <input type="text" id="inputCode" placeholder="Code à 6 chiffres" maxlength="6" class="w-full bg-slate-700 text-white py-3 md:py-4 px-4 rounded-lg font-bold text-center text-lg md:text-xl">
+
+                <button onclick="joinGame()" class="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 md:py-4 rounded-lg font-bold text-base md:text-lg hover:from-green-700 hover:to-emerald-700 transition-all">
+                  🔗 Rejoindre une Partie
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      let statusHTML = '';
+      if (gameMode === 'online') {
+        statusHTML = `
+          <div class="mb-4 text-center space-y-2">
+            <div class="flex items-center justify-center gap-2 flex-wrap">
+              <span class="text-white font-bold text-sm md:text-base">Code: <span class="text-yellow-400 text-lg md:text-xl">${gameCode}</span></span>
+              <button id="copyBtn" onclick="copyCode()" class="bg-slate-700 px-3 py-1 rounded hover:bg-slate-600 transition-all text-sm">📋</button>
+            </div>
+            <div class="text-xs md:text-sm">
+              <span class="text-purple-300">Tu joues: </span>
+              <span class="${playerColor === 'white' ? 'text-gray-200' : 'text-purple-400'}">
+                ${playerColor === 'white' ? 'BLANC ⚪' : 'NOIR ⚫'}
+              </span>
+            </div>
+            ${!opponentConnected ? '<div class="text-yellow-400 text-xs md:text-sm animate-pulse">⏳ En attente de l\'adversaire...</div>' : ''}
+          </div>
+        `;
+      }
+
+      let gameStatusHTML = '';
+      if (gameOver) {
+        let message = '';
+        if (gameOver === 'draw') {
+          message = '💀 DOUBLE K.O. 💀';
+        } else {
+          message = `👑 ${gameOver === 'white' ? 'BLANC' : 'NOIR'} GAGNE! 👑`;
+        }
+        gameStatusHTML = `
+          <div class="space-y-4">
+            <div class="text-xl md:text-3xl font-bold text-white">${message}</div>
+            <button onclick="resetGame()" class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 md:px-8 py-2 md:py-3 rounded-lg font-bold hover:from-purple-700 hover:to-pink-700 transition-all text-sm md:text-base">
+              RETOUR AU MENU
+            </button>
+          </div>
+        `;
+      } else {
+        gameStatusHTML = `
+          <div class="text-lg md:text-2xl font-bold text-white">
+            Tour : <span class="${currentPlayer === 'white' ? 'text-gray-200' : 'text-purple-400'}">
+              ${currentPlayer === 'white' ? 'BLANC ⚪' : 'NOIR ⚫'}
+            </span>
+          </div>
+        `;
+      }
+
+      const boardHTML = (() => {
+        const board2D = Array.isArray(board[0]) ? board : flatToBoard(board);
+        
+        // Rotate board for black player in online mode
+        const displayBoard = (gameMode === 'online' && playerColor === 'black') 
+          ? board2D.slice().reverse().map(row => row.slice().reverse())
+          : board2D;
+        
+        return displayBoard.map((row, displayRowIndex) => {
+          // Calculate actual board indices
+          const actualRowIndex = (gameMode === 'online' && playerColor === 'black') 
+            ? 7 - displayRowIndex 
+            : displayRowIndex;
+            
+          return row.map((piece, displayColIndex) => {
+            const actualColIndex = (gameMode === 'online' && playerColor === 'black') 
+              ? 7 - displayColIndex 
+              : displayColIndex;
+              
+            const isLight = (actualRowIndex + actualColIndex) % 2 === 0;
+            const isSelected = selectedSquare && selectedSquare[0] === actualRowIndex && selectedSquare[1] === actualColIndex;
+            const isExploding = explosions.some(([eRow, eCol]) => eRow === actualRowIndex && eCol === actualColIndex);
+            
+            let content = '';
+            if (piece && !isExploding) {
+              const color = isWhitePiece(piece) ? '#ffffff' : '#000000';
+              // J'ajoute un petit drop-shadow blanc léger pour les pièces noires 
+              // pour qu'elles ressortent bien sur les cases foncées, sinon c'est invisible !
+              const shadow = isWhitePiece(piece) 
+                ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))' 
+                : 'drop-shadow(0 0 2px rgba(255,255,255,0.5))'; 
+              
+              // Ajout de \uFE0E pour forcer le rendu texte sur iOS
+              content = `<span style="color: ${color}; filter: ${shadow}; font-family: Arial, sans-serif;">${pieceSymbols[piece]}\uFE0E</span>`;
+            }
+            
+            return `
+              <button onclick="handleSquareClick(${actualRowIndex}, ${actualColIndex})" 
+                class="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 flex items-center justify-center text-3xl sm:text-4xl md:text-5xl relative transition-all duration-200 border border-slate-800
+                  ${isLight ? 'bg-amber-100' : 'bg-amber-700'}
+                  ${isSelected ? 'ring-2 md:ring-4 ring-yellow-400 scale-95' : ''}
+                  ${isExploding ? 'animate-pulse bg-red-600' : ''}
+                  ${!gameOver && piece && getPieceColor(piece) === currentPlayer ? 'hover:scale-105 cursor-pointer' : ''}">
+                ${content}
+              </button>
+            `;
+          }).join('');
+        }).join('');
+      })();
+
+      app.innerHTML = `
+        <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-2 sm:p-4 md:p-8 flex items-center justify-center">
+          <div class="max-w-4xl w-full">
+            <div class="text-center mb-4 md:mb-8">
+              <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2">🔥 ÉCHECS ATOMIQUES 🔥</h1>
+              <p class="text-xs sm:text-sm md:text-lg text-purple-300">Capture = BOOM 💥 | Les pions sont immortels</p>
+            </div>
+
+            <div class="bg-slate-800 rounded-xl p-3 sm:p-4 md:p-6 shadow-2xl">
+              ${statusHTML}
+              
+              <div class="mb-4 md:mb-6 text-center">
+                ${gameStatusHTML}
+              </div>
+
+              <div class="flex justify-center">
+                <div class="bg-slate-700 p-2 sm:p-3 md:p-4 rounded-lg shadow-2xl inline-block">
+                  <div class="grid grid-cols-8 gap-0 border-2 md:border-4 border-slate-900">
+                    ${boardHTML}
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4 md:mt-6 text-center space-y-1 md:space-y-2">
+                <p class="text-xs md:text-sm text-purple-300">Coups joués: ${moveHistory.length}</p>
+                ${gameMode === 'online' && opponentConnected ? '<p class="text-xs text-green-400">🟢 Adversaire connecté</p>' : ''}
+                <p class="text-xs md:text-sm mt-2 text-purple-400">💡 Roque: 0-0 et 0-0-0 | En passant disponible</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    window.createGame = createGame;
+    window.joinGame = joinGame;
+    window.handleSquareClick = handleSquareClick;
+    window.resetGame = resetGame;
+    window.startLocal = startLocal;
+    window.copyCode = copyCode;
+
+    render();
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+</body>
+</html>
