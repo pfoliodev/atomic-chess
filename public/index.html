@@ -50,24 +50,9 @@
     let rookMoved = { whiteKingSide: false, whiteQueenSide: false, blackKingSide: false, blackQueenSide: false };
 
     const pieceSymbols = {
-      // On utilise les symboles PLEINS pour les deux camps
-      // C'est le CSS qui fera la différence de couleur
-      'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟', // Noirs
-      'K': '♚', 'Q': '♛', 'R': '♜', 'B': '♝', 'N': '♞', 'P': '♟'  // Blancs
+      'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟',
+      'K': '♚', 'Q': '♛', 'R': '♜', 'B': '♝', 'N': '♞', 'P': '♟'
     };
-
-    let content = '';
-    if (piece && !isExploding) {
-      const color = isWhitePiece(piece) ? '#ffffff' : '#000000';
-      // J'ajoute un petit drop-shadow blanc léger pour les pièces noires 
-      // pour qu'elles ressortent bien sur les cases foncées, sinon c'est invisible !
-      const shadow = isWhitePiece(piece) 
-        ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))' 
-        : 'drop-shadow(0 0 2px rgba(255,255,255,0.5))'; 
-      
-      // Ajout de \uFE0E pour forcer le rendu texte sur iOS
-      content = `<span style="color: ${color}; filter: ${shadow}; font-family: Arial, sans-serif;">${pieceSymbols[piece]}\uFE0E</span>`;
-    }
 
     signInAnonymously(auth).then(result => userId = result.user.uid);
 
