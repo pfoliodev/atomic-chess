@@ -11,8 +11,8 @@
     .chess-piece { font-family: "Arial", sans-serif; user-select: none; }
     .history-scroll::-webkit-scrollbar { width: 4px; }
     .history-scroll::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
-    .move-dot { width: 14px; height: 14px; background-color: rgba(0, 0, 0, 0.15); border-radius: 50%; }
-    .capture-ring { width: 48px; height: 48px; border: 4px solid rgba(0, 0, 0, 0.1); border-radius: 50%; }
+    .move-dot { width: 14px; height: 14px; background-color: rgba(0, 0, 0, 0.2); border-radius: 50%; }
+    .capture-ring { width: 48px; height: 48px; border: 4px solid rgba(255, 0, 0, 0.2); border-radius: 50%; }
   </style>
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
@@ -48,10 +48,10 @@
     let kingMoved = { white: false, black: false };
     let rookMoved = { whiteKingSide: false, whiteQueenSide: false, blackKingSide: false, blackQueenSide: false };
 
-    // CORRECTION : Symboles distincts pour Blanc et Noir
+    // UTILISATION DE VARIATION SELECTOR (\uFE0E) POUR FORCER LE MODE TEXTE SUR MOBILE
     const pieceSymbols = {
       'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟',
-      'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙'
+      'K': '♔\uFE0E', 'Q': '♕\uFE0E', 'R': '♖\uFE0E', 'B': '♗\uFE0E', 'N': '♘\uFE0E', 'P': '♙\uFE0E'
     };
 
     signInAnonymously(auth).then(result => userId = result.user.uid);
@@ -236,7 +236,7 @@
           const isCap = board[row][col] !== null;
           const isEP = canCaptureEnPassant(board, selectedSquare, [row, col]);
           const isCastling = movingPiece.toLowerCase() === 'k' && Math.abs(col - fC) === 2;
-          let moveText = (isCastling ? (col === 6 ? "O-O" : "O-O-O") : (pieceSymbols[movingPiece] || "") + " " + toAlgebraic(row, col));
+          let moveText = (isCastling ? (col === 6 ? "O-O" : "O-O-O") : (pieceSymbols[movingPiece].replace('\uFE0E','') || "") + " " + toAlgebraic(row, col));
           if (isCap) moveText += " 💥";
           let newBoard; let explosionSquares = [];
           if (isCap || isEP) {
@@ -346,8 +346,7 @@
                  ${isPossibleMove ? (hasPiece ? `<div class="capture-ring absolute"></div>` : `<div class="move-dot"></div>`) : ''}
                  <span class="chess-piece relative z-10" 
                        style="color: ${isWhitePiece(piece) ? '#FFF' : '#000'}; 
-                       filter: drop-shadow(0 2px 2px rgba(0,0,0,0.4));
-                       -webkit-text-stroke: ${isWhitePiece(piece) ? '1px #000' : 'none'};">
+                       text-shadow: ${isWhitePiece(piece) ? '0 0 2px #000, 0 0 5px rgba(0,0,0,0.5)' : 'none'};">
                     ${piece ? pieceSymbols[piece] : ''}
                  </span>
             </div>`;
@@ -385,7 +384,7 @@
           ${gameOver ? `<div class="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 p-6 text-center">
              <h1 class="text-5xl font-black text-white mb-2">${gameOver === 'draw' ? 'ÉGALITÉ' : (gameOver === 'white' ? 'BLANCS GAGNENT' : 'NOIRS GAGNENT')}</h1>
              <p class="text-yellow-500 text-2xl font-bold mb-8 italic">Le Roi a été pulvérisé !</p>
-             <button onclick="location.reload()" class="bg-blue-600 text-white px-12 py-4 rounded-full font-bold text-xl hover:scale-110 transition shadow-lg">REJOUER</button>
+             <button onclick="location.reload()" class="bg-blue-600 text-white px-12 py-4 rounded-full font-bold text-xl hover:scale-110 transition shadow-lg">REPLAY</button>
           </div>` : ''}
         </div>`;
         const historyDiv = document.querySelector('.history-scroll');
