@@ -11,13 +11,12 @@
     import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
     const firebaseConfig = {
-      apiKey: "AIzaSyBunl4KWLRYW7i6L3tPfdgavR8LfxIttHU",
-      authDomain: "atomic-chess-590fb.firebaseapp.com",
-      projectId: "atomic-chess-590fb",
-      storageBucket: "atomic-chess-590fb.firebasestorage.app",
-      messagingSenderId: "693945967318",
-      appId: "1:693945967318:web:28061e17cdf44076259f77",
-      measurementId: "G-DFVEHRC7QB"
+        apiKey: "AIzaSyCJc2nvexdOTAnwyGydexLYzdF0CmdTbg8",
+        authDomain: "atomic-chess-221b3.firebaseapp.com",
+        projectId: "atomic-chess-221b3",
+        storageBucket: "atomic-chess-221b3.firebasestorage.app",
+        messagingSenderId: "1005991526828",
+        appId: "1:1005991526828:web:4b3f6e158ac94ecd443a09"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -388,6 +387,91 @@
       render();
     }
 
+    // --- DÉBUT DU CERVEAU ANTI-SUICIDE ---
+
+    // Vérifie si une case spécifique est attaquée par l'ennemi
+    function isSquareAttacked(board, targetRow, targetCol, defenderColor) {
+      const attackerColor = defenderColor === 'white' ? 'black' : 'white';
+      
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const piece = board[r][c];
+          if (piece && getPieceColor(piece) === attackerColor) {
+            // On vérifie si cette pièce peut manger la cible
+            // Attention: pour le pion, l'attaque est différente du mouvement (diagonale)
+            if (piece.toLowerCase() === 'p') {
+              const direction = attackerColor === 'white' ? -1 : 1;
+              if (r + direction === targetRow && Math.abs(c - targetCol) === 1) {
+                return true;
+              }
+            } else {
+              // Pour les autres pièces, on utilise isValidMove
+              // On triche un peu : on passe une pièce fictive sur la cible pour simuler une capture
+              if (isValidMove(board, [r, c], [targetRow, targetCol], piece)) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    // Simule un coup complet (avec explosion) sans toucher au vrai plateau
+    // Retourne le plateau tel qu'il serait APRÈS le coup
+    function getSimulatedBoard(currentBoard, from, to, piece) {
+      // 1. Copie profonde du plateau pour ne rien casser
+      let simBoard = currentBoard.map(row => [...row]);
+      const [fromRow, fromCol] = from;
+      const [toRow, toCol] = to;
+
+      const isCapture = simBoard[toRow][toCol] !== null;
+      const isEnPassant = canCaptureEnPassant(simBoard, from, to); // Note: utilise le vrai lastMove, c'est une approx acceptable
+      
+      if (isCapture || isEnPassant) {
+          let targetPos = [toRow, toCol];
+          if (isEnPassant) {
+             targetPos = isWhitePiece(piece) ? [toRow + 1, toCol] : [toRow - 1, toCol];
+             simBoard[fromRow][fromCol] = null; // Le pion bouge
+          }
+          // Boom !
+          const result = applyAtomicExplosion(simBoard, targetPos);
+          simBoard = result.newBoard;
+          // Si ce n'était pas en passant, la pièce de départ a aussi disparu dans l'explosion ou a bougé
+          if (!isEnPassant) simBoard[fromRow][fromCol] = null;
+      } else {
+          // Mouvement simple
+          simBoard[toRow][toCol] = piece;
+          simBoard[fromRow][fromCol] = null;
+      }
+      return simBoard;
+    }
+
+    // Vérifie si le coup est légal (ne laisse pas le roi en échec ou mort)
+    function isMoveSafe(board, from, to, piece) {
+      const myColor = getPieceColor(piece);
+      const opponentColor = myColor === 'white' ? 'black' : 'white';
+
+      // 1. On simule le futur
+      const futureBoard = getSimulatedBoard(board, from, to, piece);
+
+      // 2. Est-ce que mon Roi est mort dans l'explosion ? (Suicide atomique)
+      const myKingPos = findKing(futureBoard, myColor);
+      if (!myKingPos) return false; // Roi mort = Interdit
+
+      // 3. Spécial Atomique : Si on a fait sauter le Roi adverse, on gagne, même si on est en échec
+      const opponentKingPos = findKing(futureBoard, opponentColor);
+      if (!opponentKingPos) return true; // On a gagné, le coup est valide !
+
+      // 4. Est-ce que mon Roi est en échec dans ce futur ?
+      if (isSquareAttacked(futureBoard, myKingPos[0], myKingPos[1], myColor)) {
+        return false;
+      }
+
+      return true;
+    }
+    // --- FIN DU CERVEAU ---
+
     async function handleSquareClick(row, col) {
       if (gameOver) return;
       
@@ -412,7 +496,19 @@
           return;
         }
 
-        if (getPieceColor(movingPiece) === currentPlayer && isValidMove(board, selectedSquare, [row, col], movingPiece)) {
+// On vérifie la géométrie du coup ET la sécurité du Roi
+        if (getPieceColor(movingPiece) === currentPlayer && 
+            isValidMove(board, selectedSquare, [row, col], movingPiece)) {
+            
+            // LA NOUVELLE VÉRIFICATION EST ICI :
+            if (!isMoveSafe(board, selectedSquare, [row, col], movingPiece)) {
+              // Petit feedback visuel (secoue l'écran ou juste un log pour l'instant)
+              console.log("Coup illégal : Roi en danger !");
+              // On annule la sélection pour forcer le joueur à rejouer
+              selectedSquare = null;
+              render();
+              return;
+            }
           const isCapture = board[row][col] !== null;
           const isEnPassant = canCaptureEnPassant(board, selectedSquare, [row, col]);
           const isCastling = movingPiece.toLowerCase() === 'k' && Math.abs(col - fromCol) === 2;
@@ -667,18 +763,18 @@
             const isSelected = selectedSquare && selectedSquare[0] === actualRowIndex && selectedSquare[1] === actualColIndex;
             const isExploding = explosions.some(([eRow, eCol]) => eRow === actualRowIndex && eCol === actualColIndex);
             
-            let content = '';
-            if (piece && !isExploding) {
-              const color = isWhitePiece(piece) ? '#ffffff' : '#000000';
-              // J'ajoute un petit drop-shadow blanc léger pour les pièces noires 
-              // pour qu'elles ressortent bien sur les cases foncées, sinon c'est invisible !
-              const shadow = isWhitePiece(piece) 
-                ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))' 
-                : 'drop-shadow(0 0 2px rgba(255,255,255,0.5))'; 
-              
-              // Ajout de \uFE0E pour forcer le rendu texte sur iOS
-              content = `<span style="color: ${color}; filter: ${shadow}; font-family: Arial, sans-serif;">${pieceSymbols[piece]}\uFE0E</span>`;
-            }
+          let content = '';
+          if (piece && !isExploding) {
+            const color = isWhitePiece(piece) ? '#ffffff' : '#000000';
+            // J'ajoute un petit drop-shadow blanc léger pour les pièces noires 
+            // pour qu'elles ressortent bien sur les cases foncées, sinon c'est invisible !
+            const shadow = isWhitePiece(piece) 
+              ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))' 
+              : 'drop-shadow(0 0 2px rgba(255,255,255,0.5))'; 
+            
+            // Ajout de \uFE0E pour forcer le rendu texte sur iOS
+            content = `<span style="color: ${color}; filter: ${shadow}; font-family: Arial, sans-serif;">${pieceSymbols[piece]}\uFE0E</span>`;
+          }
             
             return `
               <button onclick="handleSquareClick(${actualRowIndex}, ${actualColIndex})" 
