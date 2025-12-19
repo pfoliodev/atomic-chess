@@ -7,8 +7,17 @@ yarn-error.log*
 firebase-debug.log*
 firebase-debug.*.log*
 
+# Dépendances
+node_modules/
+.pnp
+.pnp.js
+
 # Firebase cache
 .firebase/
+firebase-debug.log
+firestore-debug.log
+pubsub-debug.log
+ui-debug.log
 
 # Firebase config
 
@@ -16,6 +25,12 @@ firebase-debug.*.log*
 # For a team working on the same Firebase project(s), it is recommended to leave
 # it commented so all members can deploy to the same project(s) in .firebaserc.
 # .firebaserc
+
+# Build (le dossier généré lors du build, ex: dist, build, .next)
+dist/
+build/
+.next/
+out/
 
 # Runtime data
 pids
@@ -64,6 +79,14 @@ node_modules/
 
 # dotenv environment variables file
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # dataconnect generated files
 .dataconnect
+
+# Système
+.DS_Store
+Thumbs.db
