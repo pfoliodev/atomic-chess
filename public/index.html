@@ -6,15 +6,14 @@
   <title>Échecs Atomiques Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      25% { transform: translateX(-5px); }
-      75% { transform: translateX(5px); }
-    }
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
     .shake-error { animation: shake 0.2s ease-in-out 0s 2; }
     .chess-piece { font-family: "Arial", sans-serif; user-select: none; }
     .history-scroll::-webkit-scrollbar { width: 4px; }
     .history-scroll::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
+    /* Style pour les points d'aide au mouvement */
+    .move-dot { width: 14px; height: 14px; background-color: rgba(0, 0, 0, 0.15); border-radius: 50%; }
+    .capture-ring { width: 48px; height: 48px; border: 4px solid rgba(0, 0, 0, 0.1); border-radius: 50%; }
   </style>
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
@@ -39,7 +38,7 @@
     let currentPlayer = 'white';
     let explosions = [];
     let gameOver = null;
-    let moveHistory = []; // Tableau stockant les coups en notation algébrique
+    let moveHistory = [];
     let gameMode = 'menu';
     let gameCode = '';
     let userId = null;
@@ -72,12 +71,7 @@
 
     function isWhitePiece(piece) { return piece && piece === piece.toUpperCase(); }
     function getPieceColor(piece) { return isWhitePiece(piece) ? 'white' : 'black'; }
-
-    // Convertit les coordonnées en notation échecs (ex: 7,4 -> e1)
-    function toAlgebraic(row, col) {
-      const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-      return letters[col] + (8 - row);
-    }
+    function toAlgebraic(row, col) { return ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'][col] + (8 - row); }
 
     function isSquareAttacked(currentBoard, targetRow, targetCol, defenderColor) {
       const attackerColor = defenderColor === 'white' ? 'black' : 'white';
@@ -121,12 +115,10 @@
       if (isSquareAttacked(currentBoard, row, 4, color)) return false;
       if (side === 'kingside') {
         if (rookMoved[color + 'KingSide'] || currentBoard[row][5] || currentBoard[row][6]) return false;
-        if (isSquareAttacked(currentBoard, row, 5, color) || isSquareAttacked(currentBoard, row, 6, color)) return false;
-        return true;
+        return !isSquareAttacked(currentBoard, row, 5, color) && !isSquareAttacked(currentBoard, row, 6, color);
       } else {
         if (rookMoved[color + 'QueenSide'] || currentBoard[row][1] || currentBoard[row][2] || currentBoard[row][3]) return false;
-        if (isSquareAttacked(currentBoard, row, 3, color) || isSquareAttacked(currentBoard, row, 2, color)) return false;
-        return true;
+        return !isSquareAttacked(currentBoard, row, 3, color) && !isSquareAttacked(currentBoard, row, 2, color);
       }
     }
 
@@ -141,8 +133,7 @@
 
     function isPathClear(board, from, to) {
       const [fR, fC] = from; const [tR, tC] = to;
-      const rStep = tR > fR ? 1 : tR < fR ? -1 : 0;
-      const cStep = tC > fC ? 1 : tC < fC ? -1 : 0;
+      const rStep = Math.sign(tR - fR); const cStep = Math.sign(tC - fC);
       let currR = fR + rStep; let currC = fC + cStep;
       while (currR !== tR || currC !== tC) {
         if (board[currR][currC]) return false;
@@ -207,36 +198,59 @@
       return null;
     }
 
+    // --- NOUVELLE FONCTION : CALCULER LES COUPS VALIDES POUR L'AIDE VISUELLE ---
+    function getValidMoves(fromRow, fromCol) {
+      const piece = board[fromRow][fromCol];
+      const validMoves = [];
+      if (!piece || getPieceColor(piece) !== currentPlayer) return [];
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const target = board[r][c];
+          // On ne peut pas manger ses propres pièces
+          if (target && getPieceColor(target) === currentPlayer) continue;
+
+          let possible = false;
+          if (piece.toLowerCase() === 'k' && Math.abs(c - fromCol) === 2 && r === fromRow) {
+            possible = canCastle(board, getPieceColor(piece), c === 6 ? 'kingside' : 'queenside');
+          } else {
+            possible = checkBasicMove(board, [fromRow, fromCol], [r, c], piece);
+          }
+
+          if (possible && isMoveSafe(board, [fromRow, fromCol], [r, c], piece)) {
+            validMoves.push([r, c]);
+          }
+        }
+      }
+      return validMoves;
+    }
+
     async function handleSquareClick(row, col) {
       if (gameOver) return;
       if (gameMode === 'online' && (currentPlayer !== playerColor || !opponentConnected)) return;
 
+      const targetPiece = board[row][col];
+
       if (selectedSquare) {
         const [fR, fC] = selectedSquare;
         const movingPiece = board[fR][fC];
-        if (row === fR && col === fC) { selectedSquare = null; render(); return; }
 
-        let isMoveValid = false;
-        if (movingPiece.toLowerCase() === 'k' && Math.abs(col - fC) === 2) {
-            isMoveValid = canCastle(board, getPieceColor(movingPiece), col === 6 ? 'kingside' : 'queenside');
-        } else {
-            isMoveValid = checkBasicMove(board, selectedSquare, [row, col], movingPiece);
+        // Désélection ou Changement de pièce (Interdiction de manger les siens)
+        if (targetPiece && getPieceColor(targetPiece) === currentPlayer) {
+          selectedSquare = (row === fR && col === fC) ? null : [row, col];
+          render();
+          return;
         }
 
-        if (isMoveValid && getPieceColor(movingPiece) === currentPlayer) {
-          if (!isMoveSafe(board, selectedSquare, [row, col], movingPiece)) {
-            const grid = document.getElementById('chess-grid');
-            grid.classList.add('shake-error');
-            setTimeout(() => grid.classList.remove('shake-error'), 400);
-            selectedSquare = null; render(); return;
-          }
+        const validMoves = getValidMoves(fR, fC);
+        const isValid = validMoves.some(m => m[0] === row && m[1] === col);
 
+        if (isValid) {
           const isCap = board[row][col] !== null;
           const isEP = canCaptureEnPassant(board, selectedSquare, [row, col]);
           const isCastling = movingPiece.toLowerCase() === 'k' && Math.abs(col - fC) === 2;
           
-          // Génération du texte pour l'historique
-          let moveText = (isCastling ? (col === 6 ? "O-O" : "O-O-O") : movingPiece.toUpperCase() + toAlgebraic(row, col));
+          let moveText = (isCastling ? (col === 6 ? "O-O" : "O-O-O") : pieceSymbols[movingPiece] + " " + toAlgebraic(row, col));
           if (isCap) moveText += " 💥";
           
           let newBoard; let explosionSquares = [];
@@ -254,8 +268,7 @@
             }
           }
 
-          const pCol = getPieceColor(movingPiece);
-          if (movingPiece.toLowerCase() === 'k') kingMoved[pCol] = true;
+          if (movingPiece.toLowerCase() === 'k') kingMoved[getPieceColor(movingPiece)] = true;
           if (movingPiece.toLowerCase() === 'r') {
              if (fR === 7 && fC === 0) rookMoved.whiteQueenSide = true;
              else if (fR === 7 && fC === 7) rookMoved.whiteKingSide = true;
@@ -279,12 +292,17 @@
           if (gameMode === 'online') {
              await updateDoc(doc(db, 'games', gameCode), { board: board.flat(), currentPlayer, lastMove, kingMoved, rookMoved, moveHistory });
           }
-          if (gameOver) render();
-        } else if (board[row][col] && getPieceColor(board[row][col]) === currentPlayer) {
-          selectedSquare = [row, col]; render();
+        } else {
+            // Animation d'erreur si clic invalide
+            const grid = document.getElementById('chess-grid');
+            grid.classList.add('shake-error');
+            setTimeout(() => grid.classList.remove('shake-error'), 400);
+            selectedSquare = null;
+            render();
         }
-      } else if (board[row][col] && getPieceColor(board[row][col]) === currentPlayer) {
-        selectedSquare = [row, col]; render();
+      } else if (targetPiece && getPieceColor(targetPiece) === currentPlayer) {
+        selectedSquare = [row, col];
+        render();
       }
     }
 
@@ -298,7 +316,7 @@
     async function joinGame() {
       const code = document.getElementById('inputCode').value;
       const snap = await getDoc(doc(db, 'games', code));
-      if (!snap.exists() || snap.data().playerBlack) return alert("Code invalide ou partie pleine");
+      if (!snap.exists() || snap.data().playerBlack) return alert("Code invalide");
       gameCode = code; playerColor = 'black'; gameMode = 'online';
       await updateDoc(doc(db, 'games', code), { playerBlack: userId, playerBlackActive: serverTimestamp() });
       startSync();
@@ -322,14 +340,17 @@
         app.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
           <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
             <h1 class="text-4xl font-bold text-white mb-8">☢️ ATOMIC CHESS</h1>
-            <button onclick="window.startLocal()" class="w-full bg-purple-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-purple-700">LOCAL</button>
-            <button onclick="window.createGame()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-blue-700">CRÉER EN LIGNE</button>
-            <input type="text" id="inputCode" placeholder="Code" class="w-full p-4 rounded-xl mb-4 text-center font-bold">
-            <button onclick="window.joinGame()" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700">REJOINDRE</button>
+            <button onclick="window.startLocal()" class="w-full bg-purple-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-purple-700 transition transform hover:scale-105">LOCAL</button>
+            <button onclick="window.createGame()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-blue-700 transition transform hover:scale-105">CRÉER EN LIGNE</button>
+            <input type="text" id="inputCode" placeholder="Code à 6 chiffres" class="w-full p-4 rounded-xl mb-4 text-center font-bold text-slate-900">
+            <button onclick="window.joinGame()" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition transform hover:scale-105">REJOINDRE</button>
           </div>
         </div>`;
         return;
       }
+
+      // Calcul des points d'aide
+      const validMoves = selectedSquare ? getValidMoves(selectedSquare[0], selectedSquare[1]) : [];
 
       const displayBoard = (playerColor === 'black') ? board.slice().reverse().map(r => r.slice().reverse()) : board;
       const boardHTML = displayBoard.map((row, rIdx) => {
@@ -339,22 +360,26 @@
           const isLight = (actualR + actualC) % 2 === 0;
           const isSel = selectedSquare && selectedSquare[0] === actualR && selectedSquare[1] === actualC;
           const isExplo = explosions.some(e => e[0] === actualR && e[1] === actualC);
-          const color = isWhitePiece(piece) ? '#FFF' : '#000';
-          const shadow = isWhitePiece(piece) ? 'drop-shadow(0 2px 2px rgba(0,0,0,0.5))' : 'drop-shadow(0 0 1px rgba(255,255,255,0.8))';
+          const isPossibleMove = validMoves.some(m => m[0] === actualR && m[1] === actualC);
+          const hasPiece = piece !== null;
+
           return `<div onclick="window.handleSquareClick(${actualR}, ${actualC})" 
-                 class="w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center text-3xl sm:text-5xl cursor-pointer
-                 ${isLight ? 'bg-amber-100' : 'bg-amber-800'} ${isSel ? 'ring-4 ring-blue-400 z-10' : ''} 
+                 class="relative w-11 h-11 sm:w-16 sm:h-16 flex items-center justify-center text-3xl sm:text-5xl cursor-pointer
+                 ${isLight ? 'bg-[#eeeed2]' : 'bg-[#769656]'} ${isSel ? 'bg-[#f6f669]' : ''} 
                  ${isExplo ? 'bg-red-500 animate-pulse' : ''}">
-                 <span class="chess-piece" style="color: ${color}; filter: ${shadow}">${piece ? pieceSymbols[piece] : ''}</span>
+                 
+                 ${isPossibleMove ? (hasPiece ? `<div class="capture-ring absolute"></div>` : `<div class="move-dot"></div>`) : ''}
+
+                 <span class="chess-piece relative z-10" style="color: ${isWhitePiece(piece) ? '#FFF' : '#000'}; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3))">
+                    ${piece ? pieceSymbols[piece] : ''}
+                 </span>
             </div>`;
         }).join('');
       }).join('');
 
-      // Génération de l'historique HTML
       let historyHTML = "";
       for (let i = 0; i < moveHistory.length; i += 2) {
-        historyHTML += `
-          <div class="flex border-b border-slate-700 py-1 text-sm">
+        historyHTML += `<div class="flex border-b border-slate-700 py-1.5 text-xs sm:text-sm">
             <span class="w-8 text-slate-500 font-mono">${Math.floor(i/2) + 1}.</span>
             <span class="flex-1 font-bold text-white">${moveHistory[i]}</span>
             <span class="flex-1 font-bold text-white">${moveHistory[i+1] || ""}</span>
@@ -362,35 +387,39 @@
       }
 
       app.innerHTML = `
-        <div class="min-h-screen bg-slate-900 text-white p-4 flex flex-col items-center">
-          <h2 class="text-2xl font-bold mb-4">${gameOver ? 'PARTIE TERMINÉE' : (currentPlayer === 'white' ? 'TOUR : BLANCS ⚪' : 'TOUR : NOIRS ⚫')}</h2>
+        <div class="min-h-screen bg-slate-900 text-white p-2 sm:p-4 flex flex-col items-center">
+          <div class="mb-4 text-center">
+            <h2 class="text-xl sm:text-2xl font-bold uppercase tracking-widest ${currentPlayer === 'white' ? 'text-white' : 'text-slate-400'}">
+              ${gameOver ? 'Fin de partie' : (currentPlayer === 'white' ? 'Blancs' : 'Noirs')}
+            </h2>
+          </div>
           
-          <div class="flex flex-col lg:flex-row gap-6 items-start">
-            <div class="flex flex-col items-center">
-              ${gameCode ? `<p class="mb-4 bg-slate-800 px-4 py-2 rounded">CODE : <span class="text-yellow-400 font-mono">${gameCode}</span></p>` : ''}
-              <div id="chess-grid" class="grid grid-cols-8 border-4 border-slate-700 shadow-2xl">${boardHTML}</div>
-            </div>
+          <div class="flex flex-col lg:flex-row gap-6 items-center lg:items-start">
+            <div id="chess-grid" class="grid grid-cols-8 border-4 border-slate-700 shadow-2xl overflow-hidden rounded-sm">${boardHTML}</div>
 
-            <div class="w-64 bg-slate-800 rounded-xl p-4 shadow-xl flex flex-col h-[320px] sm:h-[512px]">
-              <h3 class="font-bold border-b border-slate-600 pb-2 mb-2 flex items-center gap-2">
-                📜 HISTORIQUE ${moveHistory.length > 0 ? `<span class="bg-purple-600 text-[10px] px-2 rounded-full">${moveHistory.length} coups</span>` : ''}
+            <div class="w-full max-w-[350px] lg:w-72 bg-slate-800 rounded-xl p-4 shadow-xl flex flex-col h-[200px] lg:h-[512px]">
+              <h3 class="font-bold border-b border-slate-600 pb-2 mb-2 flex justify-between items-center">
+                <span>📜 HISTORIQUE</span>
+                <span class="text-[10px] bg-slate-700 px-2 py-0.5 rounded">${moveHistory.length}</span>
               </h3>
-              <div class="history-scroll overflow-y-auto flex-1 pr-2">
-                ${moveHistory.length === 0 ? '<p class="text-slate-500 text-center mt-10 text-sm">Aucun coup joué</p>' : historyHTML}
+              <div class="history-scroll overflow-y-auto flex-1 pr-1">
+                ${moveHistory.length === 0 ? '<p class="text-slate-500 text-center mt-10">Début de partie</p>' : historyHTML}
               </div>
             </div>
           </div>
 
-          <button onclick="location.reload()" class="mt-8 bg-slate-700 px-6 py-2 rounded-lg hover:bg-red-600 transition">MENU PRINCIPAL</button>
+          <div class="mt-6 flex gap-4">
+            <button onclick="location.reload()" class="bg-slate-700 px-6 py-2 rounded-lg hover:bg-slate-600 transition text-sm">MENU</button>
+            ${gameCode ? `<div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-600 text-sm">CODE: <span class="text-yellow-400 font-mono">${gameCode}</span></div>` : ''}
+          </div>
           
-          ${gameOver ? `<div class="fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-50">
-             <h1 class="text-5xl font-black text-red-500 mb-4 animate-bounce">${gameOver === 'draw' ? 'MATCH NUL' : gameOver.toUpperCase() + ' GAGNE !'}</h1>
-             <p class="text-white mb-8 text-xl">La partie s'est terminée en ${moveHistory.length} coups.</p>
-             <button onclick="location.reload()" class="bg-white text-black px-12 py-4 rounded-full font-bold text-xl hover:scale-105 transition">REJOUER</button>
+          ${gameOver ? `<div class="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 p-6 text-center">
+             <h1 class="text-5xl font-black text-white mb-2">${gameOver === 'draw' ? 'ÉGALITÉ' : (gameOver === 'white' ? 'BLANCS GAGNENT' : 'NOIRS GAGNENT')}</h1>
+             <p class="text-yellow-500 text-2xl font-bold mb-8 italic">Le Roi a été pulvérisé !</p>
+             <button onclick="location.reload()" class="bg-blue-600 text-white px-12 py-4 rounded-full font-bold text-xl hover:scale-110 transition shadow-lg">REJOUER</button>
           </div>` : ''}
         </div>`;
         
-        // Auto-scroll de l'historique vers le bas
         const historyDiv = document.querySelector('.history-scroll');
         if (historyDiv) historyDiv.scrollTop = historyDiv.scrollHeight;
     }
