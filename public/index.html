@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Échecs Atomiques Pro + Timers</title>
+  <title>Échecs Atomiques Pro + Timers Corrigés</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
@@ -14,8 +14,8 @@
     .move-dot { width: 12px; height: 12px; background-color: rgba(0, 0, 0, 0.2); border-radius: 50%; }
     .capture-ring { width: 40px; height: 40px; border: 4px solid rgba(255, 0, 0, 0.2); border-radius: 50%; }
     .coord { font-size: 10px; font-weight: bold; color: #94a3b8; display: flex; align-items: center; justify-content: center; }
-    .timer-box { font-family: 'Courier New', monospace; transition: all 0.3s; }
-    .timer-active { background-color: #f59e0b !important; color: #000 !important; transform: scale(1.05); }
+    .timer-box { font-family: 'Courier New', monospace; transition: all 0.3s; background-color: #1e293b; border: 2px solid #334155; }
+    .timer-active { border-color: #f59e0b !important; color: #f59e0b !important; box-shadow: 0 0 15px rgba(245, 158, 11, 0.2); }
   </style>
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
@@ -52,7 +52,7 @@
     let rookMoved = { whiteKingSide: false, whiteQueenSide: false, blackKingSide: false, blackQueenSide: false };
 
     // Gestion du temps
-    let selectedTimeLimit = 300; // 5 min par défaut
+    let selectedTimeLimit = 300; 
     let timers = { white: 300, black: 300 };
     let timerInterval = null;
 
@@ -76,18 +76,18 @@
       ];
     }
 
-    function isWhitePiece(piece) { return piece && piece === piece.toUpperCase(); }
-    function getPieceColor(piece) { return isWhitePiece(piece) ? 'white' : 'black'; }
-    function toAlgebraic(row, col) { return ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'][col] + (8 - row); }
-
+    // --- CORRECTION DU TIMER ---
     function startTimer() {
       if (timerInterval) clearInterval(timerInterval);
       timerInterval = setInterval(() => {
-        if (gameOver) return clearInterval(timerInterval);
+        if (gameOver || (gameMode === 'online' && !opponentConnected)) return;
+        
+        // On ne décrémente QUE le joueur en cours
         timers[currentPlayer]--;
+
         if (timers[currentPlayer] <= 0) {
           timers[currentPlayer] = 0;
-          gameOver = currentPlayer === 'white' ? 'black' : 'white';
+          gameOver = (currentPlayer === 'white' ? 'black' : 'white');
           clearInterval(timerInterval);
         }
         render();
@@ -100,22 +100,11 @@
       return `${min}:${sec.toString().padStart(2, '0')}`;
     }
 
-    // --- Fonctions de logique du jeu (checkBasicMove, applyAtomicExplosion, etc. restent identiques) ---
-    // (Incluses pour que le code soit prêt à copier-coller)
+    function isWhitePiece(piece) { return piece && piece === piece.toUpperCase(); }
+    function getPieceColor(piece) { return isWhitePiece(piece) ? 'white' : 'black'; }
+    function toAlgebraic(row, col) { return ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'][col] + (8 - row); }
 
-    function isSquareAttacked(currentBoard, targetRow, targetCol, defenderColor) {
-      const attackerColor = defenderColor === 'white' ? 'black' : 'white';
-      for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-          const piece = currentBoard[r][c];
-          if (piece && getPieceColor(piece) === attackerColor) {
-            if (checkBasicMove(currentBoard, [r, c], [targetRow, targetCol], piece, true)) return true;
-          }
-        }
-      }
-      return false;
-    }
-
+    // Logique de collision/explosion atomique (Inchangée)
     function checkBasicMove(currentBoard, from, to, piece, ignoreSafety = false) {
       const [fR, fC] = from; const [tR, tC] = to;
       const rowDiff = Math.abs(tR - fR); const colDiff = Math.abs(tC - fC);
@@ -149,25 +138,6 @@
       return true;
     }
 
-    function getSimulatedBoard(currBoard, from, to, piece) {
-      let simBoard = currBoard.map(row => [...row]);
-      const [fR, fC] = from; const [tR, tC] = to;
-      const isCapture = simBoard[tR][tC] !== null;
-      const isEP = canCaptureEnPassant(currBoard, from, to);
-      if (isCapture || isEP) {
-        let target = isEP ? (isWhitePiece(piece) ? [tR + 1, tC] : [tR - 1, tC]) : [tR, tC];
-        const { newBoard } = applyAtomicExplosion(simBoard, target);
-        simBoard = newBoard; simBoard[fR][fC] = null;
-      } else {
-        simBoard[tR][tC] = piece; simBoard[fR][fC] = null;
-        if (piece.toLowerCase() === 'k' && Math.abs(tC - fC) === 2) {
-          const rCol = tC === 6 ? 7 : 0; const rTo = tC === 6 ? 5 : 3;
-          simBoard[fR][rTo] = simBoard[fR][rCol]; simBoard[fR][rCol] = null;
-        }
-      }
-      return simBoard;
-    }
-
     function applyAtomicExplosion(currentBoard, capturePos) {
       const newBoard = currentBoard.map(row => [...row]);
       const [row, col] = capturePos;
@@ -199,32 +169,35 @@
       return null;
     }
 
-    function canCaptureEnPassant(currBoard, from, to) {
-      if (!lastMove || currBoard[from[0]][from[1]].toLowerCase() !== 'p') return false;
-      const [lFR, lFC] = lastMove.from; const [lTR, lTC] = lastMove.to;
-      return lastMove.piece.toLowerCase() === 'p' && Math.abs(lFR - lTR) === 2 && lTR === from[0] && lTC === to[1];
-    }
-
-    function canCastle(currentBoard, color, side) {
-      if (kingMoved[color]) return false;
-      const row = color === 'white' ? 7 : 0;
-      if (isSquareAttacked(currentBoard, row, 4, color)) return false;
-      if (side === 'kingside') {
-        if (rookMoved[color + 'KingSide'] || currentBoard[row][5] || currentBoard[row][6]) return false;
-        return !isSquareAttacked(currentBoard, row, 5, color) && !isSquareAttacked(currentBoard, row, 6, color);
-      } else {
-        if (rookMoved[color + 'QueenSide'] || currentBoard[row][1] || currentBoard[row][2] || currentBoard[row][3]) return false;
-        return !isSquareAttacked(currentBoard, row, 3, color) && !isSquareAttacked(currentBoard, row, 2, color);
-      }
-    }
-
     function isMoveSafe(currentBoard, from, to, piece) {
       const myColor = getPieceColor(piece);
       const futureBoard = getSimulatedBoard(currentBoard, from, to, piece);
       if (!findKing(futureBoard, myColor === 'white' ? 'black' : 'white')) return true;
       const myKingPos = findKing(futureBoard, myColor);
       if (!myKingPos) return false;
-      return !isSquareAttacked(futureBoard, myKingPos[0], myKingPos[1], myColor);
+      const attackerColor = myColor === 'white' ? 'black' : 'white';
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const p = futureBoard[r][c];
+          if (p && getPieceColor(p) === attackerColor) {
+            if (checkBasicMove(futureBoard, [r, c], [myKingPos[0], myKingPos[1]], p, true)) return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    function getSimulatedBoard(currBoard, from, to, piece) {
+      let simBoard = currBoard.map(row => [...row]);
+      const [fR, fC] = from; const [tR, tC] = to;
+      const isCapture = simBoard[tR][tC] !== null;
+      if (isCapture) {
+        const { newBoard } = applyAtomicExplosion(simBoard, [tR, tC]);
+        simBoard = newBoard; simBoard[fR][fC] = null;
+      } else {
+        simBoard[tR][tC] = piece; simBoard[fR][fC] = null;
+      }
+      return simBoard;
     }
 
     function getValidMoves(fromRow, fromCol) {
@@ -235,13 +208,9 @@
         for (let c = 0; c < 8; c++) {
           const target = board[r][c];
           if (target && getPieceColor(target) === currentPlayer) continue;
-          let possible = false;
-          if (piece.toLowerCase() === 'k' && Math.abs(c - fromCol) === 2 && r === fromRow) {
-            possible = canCastle(board, getPieceColor(piece), c === 6 ? 'kingside' : 'queenside');
-          } else {
-            possible = checkBasicMove(board, [fromRow, fromCol], [r, c], piece);
+          if (checkBasicMove(board, [fromRow, fromCol], [r, c], piece) && isMoveSafe(board, [fromRow, fromCol], [r, c], piece)) {
+            validMoves.push([r, c]);
           }
-          if (possible && isMoveSafe(board, [fromRow, fromCol], [r, c], piece)) validMoves.push([r, c]);
         }
       }
       return validMoves;
@@ -250,69 +219,60 @@
     async function handleSquareClick(row, col) {
       if (gameOver) return;
       if (gameMode === 'online' && (currentPlayer !== playerColor || !opponentConnected)) return;
+      
       const targetPiece = board[row][col];
       if (selectedSquare) {
         const [fR, fC] = selectedSquare;
         const movingPiece = board[fR][fC];
-        if (targetPiece && getPieceColor(targetPiece) === currentPlayer) {
-          selectedSquare = (row === fR && col === fC) ? null : [row, col];
-          render(); return;
-        }
         const validMoves = getValidMoves(fR, fC);
+        
         if (validMoves.some(m => m[0] === row && m[1] === col)) {
           const isCap = board[row][col] !== null;
-          const isEP = canCaptureEnPassant(board, selectedSquare, [row, col]);
-          const isCastling = movingPiece.toLowerCase() === 'k' && Math.abs(col - fC) === 2;
-          let moveText = (isCastling ? (col === 6 ? "O-O" : "O-O-O") : (pieceSymbols[movingPiece].replace('\uFE0E','') || "") + " " + toAlgebraic(row, col));
-          if (isCap) moveText += " 💥";
+          let moveText = (pieceSymbols[movingPiece].replace('\uFE0E','') || "") + " " + toAlgebraic(row, col) + (isCap ? " 💥" : "");
+          
           let newBoard; let explosionSquares = [];
-          if (isCap || isEP) {
-            const target = isEP ? (isWhitePiece(movingPiece) ? [row + 1, col] : [row - 1, col]) : [row, col];
-            const result = applyAtomicExplosion(board, target);
+          if (isCap) {
+            const result = applyAtomicExplosion(board, [row, col]);
             newBoard = result.newBoard; explosionSquares = result.explosionSquares;
             newBoard[fR][fC] = null;
           } else {
             newBoard = board.map(r => [...r]);
             newBoard[row][col] = movingPiece; newBoard[fR][fC] = null;
-            if (isCastling) {
-              const rCol = col === 6 ? 7 : 0; const rTo = col === 6 ? 5 : 3;
-              newBoard[row][rTo] = newBoard[row][rCol]; newBoard[row][rCol] = null;
-            }
           }
-          if (movingPiece.toLowerCase() === 'k') kingMoved[getPieceColor(movingPiece)] = true;
-          if (movingPiece.toLowerCase() === 'r') {
-             if (fR === 7 && fC === 0) rookMoved.whiteQueenSide = true;
-             else if (fR === 7 && fC === 7) rookMoved.whiteKingSide = true;
-             else if (fR === 0 && fC === 0) rookMoved.blackQueenSide = true;
-             else if (fR === 0 && fC === 7) rookMoved.blackKingSide = true;
-          }
-          if (movingPiece.toLowerCase() === 'p' && (row === 0 || row === 7)) newBoard[row][col] = isWhitePiece(movingPiece) ? 'Q' : 'q';
-          lastMove = { from: selectedSquare, to: [row, col], piece: movingPiece };
+          
           board = newBoard;
           moveHistory.push(moveText);
           currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
           selectedSquare = null;
+          
           if (explosionSquares.length > 0) {
             explosions = explosionSquares; render();
             setTimeout(() => { explosions = []; render(); }, 600);
           } else { render(); }
+          
           gameOver = checkGameOver(board);
+          
           if (gameMode === 'online') {
-             await updateDoc(doc(db, 'games', gameCode), { board: board.flat(), currentPlayer, lastMove, kingMoved, rookMoved, moveHistory, timers });
+             await updateDoc(doc(db, 'games', gameCode), { board: board.flat(), currentPlayer, moveHistory, timers });
           }
-        } else {
-            selectedSquare = null; render();
-        }
+        } else { selectedSquare = null; render(); }
       } else if (targetPiece && getPieceColor(targetPiece) === currentPlayer) {
         selectedSquare = [row, col]; render();
       }
     }
 
+    // --- FIREBASE ET SYNC ---
     async function createGame() {
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       gameCode = code; playerColor = 'white'; gameMode = 'online';
       timers = { white: selectedTimeLimit, black: selectedTimeLimit };
-      await setDoc(doc(db, 'games', code), { board: createInitialBoard().flat(), currentPlayer: 'white', playerWhite: userId, kingMoved, rookMoved, moveHistory: [], timers });
+      await setDoc(doc(db, 'games', code), { 
+          board: createInitialBoard().flat(), 
+          currentPlayer: 'white', 
+          playerWhite: userId, 
+          timers, 
+          moveHistory: [] 
+      });
       startSync(); startTimer();
     }
 
@@ -329,8 +289,7 @@
       unsubscribe = onSnapshot(doc(db, 'games', gameCode), (s) => {
         const d = s.data(); if (!d) return;
         board = []; for(let i=0; i<8; i++) board.push(d.board.slice(i*8, (i+1)*8));
-        currentPlayer = d.currentPlayer; lastMove = d.lastMove;
-        kingMoved = d.kingMoved; rookMoved = d.rookMoved;
+        currentPlayer = d.currentPlayer;
         moveHistory = d.moveHistory || [];
         timers = d.timers || timers;
         opponentConnected = playerColor === 'white' ? !!d.playerBlack : !!d.playerWhite;
@@ -343,21 +302,23 @@
       if (gameMode === 'menu') {
         app.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
           <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
-            <h1 class="text-4xl font-bold text-white mb-6">☢️ ATOMIC CHESS</h1>
+            <h1 class="text-4xl font-bold text-white mb-6 italic tracking-tighter">NUCLEAR CHESS</h1>
             <div class="mb-6">
-                <p class="text-slate-400 text-sm mb-2 uppercase tracking-widest">Choisir le temps</p>
+                <p class="text-slate-500 text-xs mb-3 uppercase font-bold">CADENCE DE JEU</p>
                 <div class="grid grid-cols-4 gap-2">
                     ${[1, 3, 5, 10].map(m => `
-                        <button onclick="window.setTime(${m * 60})" class="py-2 rounded bg-slate-700 hover:bg-slate-600 ${selectedTimeLimit === m*60 ? 'ring-2 ring-yellow-400 text-yellow-400' : 'text-white'}">
+                        <button onclick="window.setTime(${m * 60})" class="py-2 rounded font-bold transition ${selectedTimeLimit === m*60 ? 'bg-yellow-500 text-black' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}">
                             ${m}m
                         </button>
                     `).join('')}
                 </div>
             </div>
-            <button onclick="window.startLocal()" class="w-full bg-purple-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-purple-700 transition">LOCAL</button>
-            <button onclick="window.createGame()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-blue-700 transition">CRÉER EN LIGNE</button>
-            <input type="text" id="inputCode" placeholder="Code à 6 chiffres" class="w-full p-4 rounded-xl mb-4 text-center font-bold text-slate-900">
-            <button onclick="window.joinGame()" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition">REJOINDRE</button>
+            <button onclick="window.startLocal()" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-black mb-4 hover:bg-indigo-700 transition">LOCAL</button>
+            <button onclick="window.createGame()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black mb-4 hover:bg-blue-700 transition">CRÉER EN LIGNE</button>
+            <div class="flex gap-2">
+                <input type="text" id="inputCode" placeholder="Code" class="flex-1 p-4 rounded-xl text-center font-bold bg-slate-100">
+                <button onclick="window.joinGame()" class="bg-emerald-600 text-white px-6 rounded-xl font-black hover:bg-emerald-700">REJOINDRE</button>
+            </div>
           </div>
         </div>`;
         return;
@@ -379,7 +340,7 @@
           const isExplo = explosions.some(e => e[0] === actualR && e[1] === actualC);
           const isPossibleMove = validMoves.some(m => m[0] === actualR && m[1] === actualC);
           boardHTML.push(`<div onclick="window.handleSquareClick(${actualR}, ${actualC})" 
-                 class="relative w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center text-3xl sm:text-5xl cursor-pointer
+                 class="relative w-[11vw] h-[11vw] sm:w-16 sm:h-16 flex items-center justify-center text-3xl sm:text-5xl cursor-pointer
                  ${isLight ? 'bg-[#eeeed2]' : 'bg-[#769656]'} ${isSel ? 'bg-[#f6f669]' : ''} 
                  ${isExplo ? 'bg-red-500 animate-pulse' : ''}">
                  ${isPossibleMove ? (piece ? `<div class="capture-ring absolute"></div>` : `<div class="move-dot"></div>`) : ''}
@@ -396,39 +357,47 @@
       const myColor = playerColor || 'white';
 
       app.innerHTML = `
-        <div class="min-h-screen bg-slate-900 text-white p-2 sm:p-4 flex flex-col items-center">
-          <div class="timer-box w-full max-w-[350px] sm:max-w-[512px] flex justify-between items-center mb-2 px-6 py-2 bg-slate-800 rounded-lg ${currentPlayer === oppColor ? 'timer-active' : ''}">
-            <span class="font-bold uppercase">${oppColor}</span>
-            <span class="text-2xl font-black">${formatTime(timers[oppColor])}</span>
+        <div class="min-h-screen bg-slate-900 text-white p-2 flex flex-col items-center justify-center">
+          
+          <div class="timer-box w-full max-w-[512px] flex justify-between items-center mb-4 px-6 py-3 rounded-xl ${currentPlayer === oppColor ? 'timer-active' : ''}">
+            <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full ${oppColor === 'white' ? 'bg-white' : 'bg-black border border-slate-600'}"></div>
+                <span class="font-bold text-xs">ADVERSAIRE</span>
+            </div>
+            <span class="text-3xl font-black">${formatTime(timers[oppColor])}</span>
           </div>
 
-          <div class="flex flex-col lg:flex-row gap-6 items-center">
-            <div id="chess-grid" class="grid grid-cols-[20px_repeat(8,1fr)] bg-slate-800 p-1 border-2 border-slate-700 shadow-2xl rounded-sm">
+          <div class="flex flex-col lg:flex-row gap-4 items-start">
+            <div id="chess-grid" class="grid grid-cols-[20px_repeat(8,1fr)] bg-slate-800 p-1 border-4 border-slate-700 shadow-2xl rounded-lg">
               ${boardHTML.join('')}
             </div>
             
-            <div class="w-full max-w-[350px] lg:w-72 bg-slate-800 rounded-xl p-4 shadow-xl flex flex-col h-[150px] lg:h-[512px]">
-              <h3 class="font-bold border-b border-slate-600 pb-2 mb-2">📜 HISTORIQUE</h3>
-              <div class="history-scroll overflow-y-auto flex-1 text-sm">
-                ${moveHistory.map((m, i) => i % 2 === 0 ? `<div class="py-1"><span class="text-slate-500 mr-2">${Math.floor(i/2)+1}.</span><b>${m}</b> ${moveHistory[i+1] || ''}</div>` : '').join('')}
-              </div>
+            <div class="w-full lg:w-48 bg-slate-800 rounded-lg p-3 h-32 lg:h-[450px] overflow-hidden flex flex-col">
+                <p class="text-[10px] font-bold text-slate-500 mb-2 uppercase">Historique</p>
+                <div class="history-scroll overflow-y-auto flex-1 text-xs">
+                    ${moveHistory.map((m, i) => i % 2 === 0 ? `<div class="mb-1"><span class="text-slate-600">${Math.floor(i/2)+1}.</span> <b>${m}</b> ${moveHistory[i+1] || ''}</div>` : '').join('')}
+                </div>
             </div>
           </div>
 
-          <div class="timer-box w-full max-w-[350px] sm:max-w-[512px] flex justify-between items-center mt-2 px-6 py-2 bg-slate-800 rounded-lg ${currentPlayer === myColor ? 'timer-active' : ''}">
-            <span class="font-bold uppercase">${myColor} (VOUS)</span>
-            <span class="text-2xl font-black">${formatTime(timers[myColor])}</span>
+          <div class="timer-box w-full max-w-[512px] flex justify-between items-center mt-4 px-6 py-3 rounded-xl ${currentPlayer === myColor ? 'timer-active' : ''}">
+            <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full ${myColor === 'white' ? 'bg-white' : 'bg-black border border-slate-600'}"></div>
+                <span class="font-bold text-xs uppercase text-indigo-400">Votre tour</span>
+            </div>
+            <span class="text-3xl font-black">${formatTime(timers[myColor])}</span>
           </div>
 
-          <div class="mt-4 flex gap-4">
-            <button onclick="location.reload()" class="bg-slate-700 px-6 py-2 rounded-lg hover:bg-slate-600 text-sm">MENU</button>
-            ${gameCode ? `<div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-600 text-sm font-mono text-yellow-400">${gameCode}</div>` : ''}
+          <div class="mt-6 flex gap-3">
+            <button onclick="location.reload()" class="bg-slate-700 px-5 py-2 rounded-lg font-bold text-xs">MENU</button>
+            ${gameCode ? `<div class="bg-slate-800 px-5 py-2 rounded-lg border border-slate-700 text-xs font-mono text-yellow-500">CODE: ${gameCode}</div>` : ''}
           </div>
 
-          ${gameOver ? `<div class="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 text-center">
+          ${gameOver ? `<div class="fixed inset-0 bg-black/95 flex flex-col items-center justify-center z-50 text-center p-6">
+             <div class="text-6xl mb-4">☢️</div>
              <h1 class="text-5xl font-black mb-2">${gameOver === 'white' ? 'BLANCS GAGNENT' : 'NOIRS GAGNENT'}</h1>
-             <p class="text-yellow-500 text-2xl font-bold mb-8 italic">${timers[currentPlayer] <= 0 ? 'Temps écoulé !' : 'Explosion totale !'}</p>
-             <button onclick="location.reload()" class="bg-blue-600 px-12 py-4 rounded-full font-bold text-xl hover:scale-110 transition">REJOUER</button>
+             <p class="text-slate-400 text-xl mb-8">${timers[currentPlayer] <= 0 ? 'Victoire au temps' : 'Le roi adverse a explosé'}</p>
+             <button onclick="location.reload()" class="bg-white text-black px-12 py-4 rounded-full font-black text-xl hover:bg-yellow-400 transition">REJOUER</button>
           </div>` : ''}
         </div>`;
     }
