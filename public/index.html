@@ -13,11 +13,11 @@
     .history-scroll::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
     .move-dot { width: 12px; height: 12px; background-color: rgba(0, 0, 0, 0.2); border-radius: 50%; }
     .capture-ring { width: 40px; height: 40px; border: 4px solid rgba(255, 0, 0, 0.2); border-radius: 50%; }
-    
-    /* Styles pour les coordonnées */
     .coord { font-size: 10px; font-weight: bold; color: #94a3b8; display: flex; align-items: center; justify-content: center; }
     .coord-row { width: 20px; }
     .coord-col { height: 20px; }
+    @keyframes pulse-timer { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    .timer-warning { animation: pulse-timer 1s infinite; color: #ef4444 !important; }
   </style>
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
@@ -52,6 +52,13 @@
     let lastMove = null;
     let kingMoved = { white: false, black: false };
     let rookMoved = { whiteKingSide: false, whiteQueenSide: false, blackKingSide: false, blackQueenSide: false };
+    
+    // Timer variables
+    let whiteTime = 600; // 10 minutes en secondes
+    let blackTime = 600;
+    let timerInterval = null;
+    let lastTimerUpdate = Date.now();
+    let selectedTimeControl = 600; // Default 10min
 
     const pieceSymbols = {
       'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟',
@@ -71,6 +78,65 @@
         ['P','P','P','P','P','P','P','P'],
         ['R','N','B','Q','K','B','N','R']
       ];
+    }
+
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      lastTimerUpdate = Date.now();
+      
+      timerInterval = setInterval(() => {
+        if (gameOver || gameMode !== 'online') return;
+        
+        const now = Date.now();
+        const elapsed = Math.floor((now - lastTimerUpdate) / 1000);
+        
+        if (elapsed >= 1) {
+          lastTimerUpdate = now;
+          
+          if (currentPlayer === 'white') {
+            whiteTime = Math.max(0, whiteTime - elapsed);
+            if (whiteTime === 0) {
+              gameOver = 'black';
+              if (gameCode) {
+                updateDoc(doc(db, 'games', gameCode), { 
+                  gameOver: 'black',
+                  whiteTime: 0,
+                  blackTime
+                });
+              }
+            }
+          } else {
+            blackTime = Math.max(0, blackTime - elapsed);
+            if (blackTime === 0) {
+              gameOver = 'white';
+              if (gameCode) {
+                updateDoc(doc(db, 'games', gameCode), { 
+                  gameOver: 'white',
+                  whiteTime,
+                  blackTime: 0
+                });
+              }
+            }
+          }
+          
+          render();
+          
+          // Update Firebase every 2 seconds
+          if (gameCode && elapsed % 2 === 0) {
+            updateDoc(doc(db, 'games', gameCode), {
+              whiteTime,
+              blackTime,
+              lastTimerUpdate: Date.now()
+            });
+          }
+        }
+      }, 100);
     }
 
     function isWhitePiece(piece) { return piece && piece === piece.toUpperCase(); }
@@ -269,13 +335,25 @@
           moveHistory.push(moveText);
           currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
           selectedSquare = null;
+          lastTimerUpdate = Date.now();
+          
           if (explosionSquares.length > 0) {
             explosions = explosionSquares; render();
             setTimeout(() => { explosions = []; render(); }, 600);
           } else { render(); }
           gameOver = checkGameOver(board);
           if (gameMode === 'online') {
-             await updateDoc(doc(db, 'games', gameCode), { board: board.flat(), currentPlayer, lastMove, kingMoved, rookMoved, moveHistory });
+             await updateDoc(doc(db, 'games', gameCode), { 
+               board: board.flat(), 
+               currentPlayer, 
+               lastMove, 
+               kingMoved, 
+               rookMoved, 
+               moveHistory,
+               whiteTime,
+               blackTime,
+               lastTimerUpdate: Date.now()
+             });
           }
         } else {
             const grid = document.getElementById('chess-grid');
@@ -293,8 +371,22 @@
     async function createGame() {
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       gameCode = code; playerColor = 'white'; gameMode = 'online';
-      await setDoc(doc(db, 'games', code), { board: createInitialBoard().flat(), currentPlayer: 'white', playerWhite: userId, kingMoved, rookMoved, moveHistory: [] });
+      whiteTime = selectedTimeControl;
+      blackTime = selectedTimeControl;
+      await setDoc(doc(db, 'games', code), { 
+        board: createInitialBoard().flat(), 
+        currentPlayer: 'white', 
+        playerWhite: userId, 
+        kingMoved, 
+        rookMoved, 
+        moveHistory: [],
+        whiteTime,
+        blackTime,
+        lastTimerUpdate: Date.now(),
+        gameOver: null
+      });
       startSync();
+      startTimer();
     }
 
     async function joinGame() {
@@ -302,8 +394,12 @@
       const snap = await getDoc(doc(db, 'games', code));
       if (!snap.exists() || snap.data().playerBlack) return alert("Code invalide");
       gameCode = code; playerColor = 'black'; gameMode = 'online';
+      const data = snap.data();
+      whiteTime = data.whiteTime || 600;
+      blackTime = data.blackTime || 600;
       await updateDoc(doc(db, 'games', code), { playerBlack: userId, playerBlackActive: serverTimestamp() });
       startSync();
+      startTimer();
     }
 
     function startSync() {
@@ -313,9 +409,23 @@
         currentPlayer = d.currentPlayer; lastMove = d.lastMove;
         kingMoved = d.kingMoved; rookMoved = d.rookMoved;
         moveHistory = d.moveHistory || [];
+        
+        // Sync timers
+        if (d.whiteTime !== undefined) whiteTime = d.whiteTime;
+        if (d.blackTime !== undefined) blackTime = d.blackTime;
+        if (d.lastTimerUpdate) lastTimerUpdate = d.lastTimerUpdate;
+        if (d.gameOver) gameOver = d.gameOver;
+        
         opponentConnected = playerColor === 'white' ? !!d.playerBlack : !!d.playerWhite;
-        gameOver = checkGameOver(board); render();
+        if (!gameOver) gameOver = checkGameOver(board);
+        render();
       });
+    }
+
+    function setTimeControl(seconds) {
+      selectedTimeControl = seconds;
+      document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('ring-2', 'ring-yellow-400'));
+      event.target.classList.add('ring-2', 'ring-yellow-400');
     }
 
     function render() {
@@ -324,6 +434,17 @@
         app.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
           <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
             <h1 class="text-4xl font-bold text-white mb-8">☢️ ATOMIC CHESS</h1>
+            
+            <div class="mb-6">
+              <p class="text-slate-400 text-sm mb-3">⏱️ Contrôle du temps</p>
+              <div class="grid grid-cols-4 gap-2">
+                <button onclick="window.setTimeControl(180)" class="time-btn bg-slate-700 text-white py-2 rounded-lg hover:bg-slate-600 text-sm">3min</button>
+                <button onclick="window.setTimeControl(300)" class="time-btn bg-slate-700 text-white py-2 rounded-lg hover:bg-slate-600 text-sm">5min</button>
+                <button onclick="window.setTimeControl(600)" class="time-btn bg-slate-700 text-white py-2 rounded-lg hover:bg-slate-600 text-sm ring-2 ring-yellow-400">10min</button>
+                <button onclick="window.setTimeControl(900)" class="time-btn bg-slate-700 text-white py-2 rounded-lg hover:bg-slate-600 text-sm">15min</button>
+              </div>
+            </div>
+            
             <button onclick="window.startLocal()" class="w-full bg-purple-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-purple-700 transition transform hover:scale-105">LOCAL</button>
             <button onclick="window.createGame()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-blue-700 transition transform hover:scale-105">CRÉER EN LIGNE</button>
             <input type="text" id="inputCode" placeholder="Code à 6 chiffres" class="w-full p-4 rounded-xl mb-4 text-center font-bold text-slate-900">
@@ -336,8 +457,6 @@
       const validMoves = selectedSquare ? getValidMoves(selectedSquare[0], selectedSquare[1]) : [];
       const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
       const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
-
-      // On inverse les labels si on joue les noirs
       const displayFiles = (playerColor === 'black') ? [...files].reverse() : files;
       const displayRanks = (playerColor === 'black') ? [...ranks].reverse() : ranks;
 
@@ -346,8 +465,6 @@
       
       displayBoard.forEach((row, rIdx) => {
         const actualR = (playerColor === 'black') ? 7 - rIdx : rIdx;
-        
-        // Label de ligne (Chiffre)
         boardCells.push(`<div class="coord coord-row">${displayRanks[rIdx]}</div>`);
         
         row.forEach((piece, cIdx) => {
@@ -372,8 +489,7 @@
         });
       });
 
-      // Ligne de labels de colonnes (Lettres)
-      boardCells.push(`<div></div>`); // Coin vide
+      boardCells.push(`<div></div>`);
       displayFiles.forEach(f => boardCells.push(`<div class="coord coord-col">${f}</div>`));
 
       let historyHTML = "";
@@ -385,8 +501,24 @@
           </div>`;
       }
 
+      const whiteTimerClass = (whiteTime < 30 && currentPlayer === 'white') ? 'timer-warning' : '';
+      const blackTimerClass = (blackTime < 30 && currentPlayer === 'black') ? 'timer-warning' : '';
+
       app.innerHTML = `
         <div class="min-h-screen bg-slate-900 text-white p-2 sm:p-4 flex flex-col items-center">
+          
+          ${gameMode === 'online' ? `
+          <div class="mb-4 w-full max-w-[350px] lg:w-72 bg-slate-800 rounded-xl p-3 shadow-xl">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-sm ${currentPlayer === 'black' ? 'text-yellow-400 font-bold' : 'text-slate-400'}">⚫ NOIRS</span>
+              <span class="text-2xl font-mono font-bold ${blackTimerClass}">${formatTime(blackTime)}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm ${currentPlayer === 'white' ? 'text-yellow-400 font-bold' : 'text-slate-400'}">⚪ BLANCS</span>
+              <span class="text-2xl font-mono font-bold ${whiteTimerClass}">${formatTime(whiteTime)}</span>
+            </div>
+          </div>` : ''}
+          
           <div class="mb-4 text-center">
             <h2 class="text-xl sm:text-2xl font-bold uppercase tracking-widest ${currentPlayer === 'white' ? 'text-white' : 'text-slate-400'}">
               ${gameOver ? 'Fin de partie' : (currentPlayer === 'white' ? 'Blancs' : 'Noirs')}
@@ -414,7 +546,7 @@
           
           ${gameOver ? `<div class="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 p-6 text-center">
              <h1 class="text-5xl font-black text-white mb-2">${gameOver === 'draw' ? 'ÉGALITÉ' : (gameOver === 'white' ? 'BLANCS GAGNENT' : 'NOIRS GAGNENT')}</h1>
-             <p class="text-yellow-500 text-2xl font-bold mb-8 italic">Le Roi a été pulvérisé !</p>
+             <p class="text-yellow-500 text-2xl font-bold mb-8 italic">${whiteTime === 0 || blackTime === 0 ? 'Temps écoulé !' : 'Le Roi a été pulvérisé !'}</p>
              <button onclick="location.reload()" class="bg-blue-600 text-white px-12 py-4 rounded-full font-bold text-xl hover:scale-110 transition shadow-lg">REJOUER</button>
           </div>` : ''}
         </div>`;
@@ -426,6 +558,7 @@
     window.createGame = createGame;
     window.joinGame = joinGame;
     window.handleSquareClick = handleSquareClick;
+    window.setTimeControl = setTimeControl;
     render();
   </script>
 </head>
