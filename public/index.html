@@ -3,555 +3,96 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Échecs Atomiques Pro</title>
+  <title>Échecs Atomiques Pro (Refactored)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    /* Tes animations originales */
     @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
     .shake-error { animation: shake 0.2s ease-in-out 0s 2; }
     .chess-piece { font-family: "Arial", sans-serif; user-select: none; }
-    .history-scroll::-webkit-scrollbar { width: 4px; }
-    .history-scroll::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
-    .move-dot { width: 12px; height: 12px; background-color: rgba(0, 0, 0, 0.2); border-radius: 50%; }
-    .capture-ring { width: 40px; height: 40px; border: 4px solid rgba(255, 0, 0, 0.2); border-radius: 50%; }
     .coord { font-size: 10px; font-weight: bold; color: #94a3b8; display: flex; align-items: center; justify-content: center; }
     .coord-row { width: 20px; }
     .coord-col { height: 20px; }
-    @keyframes pulse-timer { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-    .timer-warning { animation: pulse-timer 1s infinite; color: #ef4444 !important; }
   </style>
-  <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-    import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-    import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-
-    const firebaseConfig = {
-        apiKey: "AIzaSyCJc2nvexdOTAnwyGydexLYzdF0CmdTbg8",
-        authDomain: "atomic-chess-221b3.firebaseapp.com",
-        projectId: "atomic-chess-221b3",
-        storageBucket: "atomic-chess-221b3.firebasestorage.app",
-        messagingSenderId: "1005991526828",
-        appId: "1:1005991526828:web:4b3f6e158ac94ecd443a09"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-
-    let board = createInitialBoard();
-    let selectedSquare = null;
-    let currentPlayer = 'white';
-    let explosions = [];
-    let gameOver = null;
-    let moveHistory = [];
-    let gameMode = 'menu';
-    let gameCode = '';
-    let userId = null;
-    let playerColor = null;
-    let opponentConnected = false;
-    let unsubscribe = null;
-    let lastMove = null;
-    let kingMoved = { white: false, black: false };
-    let rookMoved = { whiteKingSide: false, whiteQueenSide: false, blackKingSide: false, blackQueenSide: false };
-    
-    let whiteTime = 600;
-    let blackTime = 600;
-    let timerInterval = null;
-    let lastTimerUpdate = Date.now();
-    let selectedTimeControl = 600;
-
-    const pieceSymbols = {
-      'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟',
-      'K': '♔\uFE0E', 'Q': '♕\uFE0E', 'R': '♖\uFE0E', 'B': '♗\uFE0E', 'N': '♘\uFE0E', 'P': '♙\uFE0E'
-    };
-
-    signInAnonymously(auth).then(result => userId = result.user.uid);
-
-    function createInitialBoard() {
-      return [
-        ['r','n','b','q','k','b','n','r'],
-        ['p','p','p','p','p','p','p','p'],
-        [null,null,null,null,null,null,null,null],
-        [null,null,null,null,null,null,null,null],
-        [null,null,null,null,null,null,null,null],
-        [null,null,null,null,null,null,null,null],
-        ['P','P','P','P','P','P','P','P'],
-        ['R','N','B','Q','K','B','N','R']
-      ];
-    }
-
-    function formatTime(seconds) {
-      const mins = Math.floor(seconds / 60);
-      const secs = seconds % 60;
-      return `${mins}:${secs.toString().padStart(2, '0')}`;
-    }
-
-    function startTimer() {
-      if (timerInterval) clearInterval(timerInterval);
-      lastTimerUpdate = Date.now();
-      
-      timerInterval = setInterval(() => {
-        // MODIFICATION : Le chrono ne tourne que si la partie est lancée ET qu'un adversaire est là
-        const isGameStarted = moveHistory.length > 0;
-        const canTick = !gameOver && (gameMode === 'local' || (gameMode === 'online' && opponentConnected && isGameStarted));
-
-        if (!canTick) {
-          lastTimerUpdate = Date.now(); // On reset pour éviter le saut de temps au démarrage
-          return;
-        }
-        
-        const now = Date.now();
-        const elapsed = Math.floor((now - lastTimerUpdate) / 1000);
-        
-        if (elapsed >= 1) {
-          lastTimerUpdate = now;
-          
-          if (currentPlayer === 'white') {
-            whiteTime = Math.max(0, whiteTime - elapsed);
-            if (whiteTime === 0) {
-              gameOver = 'black';
-              if (gameCode) updateDoc(doc(db, 'games', gameCode), { gameOver: 'black', whiteTime: 0 });
-            }
-          } else {
-            blackTime = Math.max(0, blackTime - elapsed);
-            if (blackTime === 0) {
-              gameOver = 'white';
-              if (gameCode) updateDoc(doc(db, 'games', gameCode), { gameOver: 'white', blackTime: 0 });
-            }
-          }
-          
-          render();
-          
-          if (gameCode && elapsed % 2 === 0 && gameMode === 'online') {
-            updateDoc(doc(db, 'games', gameCode), {
-              whiteTime,
-              blackTime,
-              lastTimerUpdate: Date.now()
-            });
-          }
-        }
-      }, 100);
-    }
-
-    function isWhitePiece(piece) { return piece && piece === piece.toUpperCase(); }
-    function getPieceColor(piece) { return isWhitePiece(piece) ? 'white' : 'black'; }
-    function toAlgebraic(row, col) { return ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'][col] + (8 - row); }
-
-    function isSquareAttacked(currentBoard, targetRow, targetCol, defenderColor) {
-      const attackerColor = defenderColor === 'white' ? 'black' : 'white';
-      for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-          const piece = currentBoard[r][c];
-          if (piece && getPieceColor(piece) === attackerColor) {
-            if (checkBasicMove(currentBoard, [r, c], [targetRow, targetCol], piece, true)) return true;
-          }
-        }
-      }
-      return false;
-    }
-
-    function checkBasicMove(currentBoard, from, to, piece, ignoreSafety = false) {
-      const [fR, fC] = from; const [tR, tC] = to;
-      const rowDiff = Math.abs(tR - fR); const colDiff = Math.abs(tC - fC);
-      const type = piece.toLowerCase(); const target = currentBoard[tR][tC];
-
-      if (type === 'p') {
-        const dir = isWhitePiece(piece) ? -1 : 1;
-        if (ignoreSafety) return tR === fR + dir && colDiff === 1;
-        if (fC === tC && !target) {
-          if (tR === fR + dir) return true;
-          if (fR === (isWhitePiece(piece) ? 6 : 1) && tR === fR + 2 * dir && !currentBoard[fR + dir][fC]) return true;
-        }
-        if (colDiff === 1 && tR === fR + dir && (target || canCaptureEnPassant(currentBoard, from, to))) return true;
-        return false;
-      }
-      if (type === 'n') return (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
-      if (type === 'b') return rowDiff === colDiff && isPathClear(currentBoard, from, to);
-      if (type === 'r') return (fR === tR || fC === tC) && isPathClear(currentBoard, from, to);
-      if (type === 'q') return (rowDiff === colDiff || fR === tR || fC === tC) && isPathClear(currentBoard, from, to);
-      if (type === 'k') return rowDiff <= 1 && colDiff <= 1;
-      return false;
-    }
-
-    function canCastle(currentBoard, color, side) {
-      if (kingMoved[color]) return false;
-      const row = color === 'white' ? 7 : 0;
-      if (isSquareAttacked(currentBoard, row, 4, color)) return false;
-      if (side === 'kingside') {
-        if (rookMoved[color + 'KingSide'] || currentBoard[row][5] || currentBoard[row][6]) return false;
-        return !isSquareAttacked(currentBoard, row, 5, color) && !isSquareAttacked(currentBoard, row, 6, color);
-      } else {
-        if (rookMoved[color + 'QueenSide'] || currentBoard[row][1] || currentBoard[row][2] || currentBoard[row][3]) return false;
-        return !isSquareAttacked(currentBoard, row, 3, color) && !isSquareAttacked(currentBoard, row, 2, color);
-      }
-    }
-
-    function isMoveSafe(currentBoard, from, to, piece) {
-      const myColor = getPieceColor(piece);
-      const futureBoard = getSimulatedBoard(currentBoard, from, to, piece);
-      if (!findKing(futureBoard, myColor === 'white' ? 'black' : 'white')) return true;
-      const myKingPos = findKing(futureBoard, myColor);
-      if (!myKingPos) return false;
-      return !isSquareAttacked(futureBoard, myKingPos[0], myKingPos[1], myColor);
-    }
-
-    function isPathClear(board, from, to) {
-      const [fR, fC] = from; const [tR, tC] = to;
-      const rStep = Math.sign(tR - fR); const cStep = Math.sign(tC - fC);
-      let currR = fR + rStep; let currC = fC + cStep;
-      while (currR !== tR || currC !== tC) {
-        if (board[currR][currC]) return false;
-        currR += rStep; currC += cStep;
-      }
-      return true;
-    }
-
-    function getSimulatedBoard(currBoard, from, to, piece) {
-      let simBoard = currBoard.map(row => [...row]);
-      const [fR, fC] = from; const [tR, tC] = to;
-      const isCapture = simBoard[tR][tC] !== null;
-      const isEP = canCaptureEnPassant(currBoard, from, to);
-      if (isCapture || isEP) {
-        let target = isEP ? (isWhitePiece(piece) ? [tR + 1, tC] : [tR - 1, tC]) : [tR, tC];
-        const { newBoard } = applyAtomicExplosion(simBoard, target);
-        simBoard = newBoard; simBoard[fR][fC] = null;
-      } else {
-        simBoard[tR][tC] = piece; simBoard[fR][fC] = null;
-        if (piece.toLowerCase() === 'k' && Math.abs(tC - fC) === 2) {
-          const rCol = tC === 6 ? 7 : 0; const rTo = tC === 6 ? 5 : 3;
-          simBoard[fR][rTo] = simBoard[fR][rCol]; simBoard[fR][rCol] = null;
-        }
-      }
-      return simBoard;
-    }
-
-    function applyAtomicExplosion(currentBoard, capturePos) {
-      const newBoard = currentBoard.map(row => [...row]);
-      const [row, col] = capturePos;
-      newBoard[row][col] = null;
-      const explosionSquares = [[row, col]];
-      const neighbors = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
-      neighbors.forEach(([dR, dC]) => {
-        const nR = row + dR; const nC = col + dC;
-        if (nR >= 0 && nR < 8 && nC >= 0 && nC < 8) {
-          const p = newBoard[nR][nC];
-          if (p && p.toLowerCase() !== 'p') { newBoard[nR][nC] = null; explosionSquares.push([nR, nC]); }
-        }
-      });
-      return { newBoard, explosionSquares };
-    }
-
-    function canCaptureEnPassant(currBoard, from, to) {
-      if (!lastMove || currBoard[from[0]][from[1]].toLowerCase() !== 'p') return false;
-      const [lFR, lFC] = lastMove.from; const [lTR, lTC] = lastMove.to;
-      return lastMove.piece.toLowerCase() === 'p' && Math.abs(lFR - lTR) === 2 && lTR === from[0] && lTC === to[1];
-    }
-
-    function findKing(currentBoard, color) {
-      const target = color === 'white' ? 'K' : 'k';
-      for (let r = 0; r < 8; r++) { for (let c = 0; c < 8; c++) if (currentBoard[r][c] === target) return [r, c]; }
-      return null;
-    }
-
-    function checkGameOver(currentBoard) {
-      const wK = findKing(currentBoard, 'white');
-      const bK = findKing(currentBoard, 'black');
-      if (!wK && !bK) return 'draw';
-      if (!wK) return 'black';
-      if (!bK) return 'white';
-      return null;
-    }
-
-    function getValidMoves(fromRow, fromCol) {
-      const piece = board[fromRow][fromCol];
-      const validMoves = [];
-      if (!piece || getPieceColor(piece) !== currentPlayer) return [];
-      for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-          const target = board[r][c];
-          if (target && getPieceColor(target) === currentPlayer) continue;
-          let possible = false;
-          if (piece.toLowerCase() === 'k' && Math.abs(c - fromCol) === 2 && r === fromRow) {
-            possible = canCastle(board, getPieceColor(piece), c === 6 ? 'kingside' : 'queenside');
-          } else {
-            possible = checkBasicMove(board, [fromRow, fromCol], [r, c], piece);
-          }
-          if (possible && isMoveSafe(board, [fromRow, fromCol], [r, c], piece)) validMoves.push([r, c]);
-        }
-      }
-      return validMoves;
-    }
-
-    async function handleSquareClick(row, col) {
-      if (gameOver) return;
-      if (gameMode === 'online' && (currentPlayer !== playerColor || !opponentConnected)) return;
-      const targetPiece = board[row][col];
-      if (selectedSquare) {
-        const [fR, fC] = selectedSquare;
-        const movingPiece = board[fR][fC];
-        if (targetPiece && getPieceColor(targetPiece) === currentPlayer) {
-          selectedSquare = (row === fR && col === fC) ? null : [row, col];
-          render();
-          return;
-        }
-        const validMoves = getValidMoves(fR, fC);
-        const isValid = validMoves.some(m => m[0] === row && m[1] === col);
-        if (isValid) {
-          const isCap = board[row][col] !== null;
-          const isEP = canCaptureEnPassant(board, selectedSquare, [row, col]);
-          const isCastling = movingPiece.toLowerCase() === 'k' && Math.abs(col - fC) === 2;
-          let moveText = (isCastling ? (col === 6 ? "O-O" : "O-O-O") : (pieceSymbols[movingPiece].replace('\uFE0E','') || "") + " " + toAlgebraic(row, col));
-          if (isCap) moveText += " 💥";
-          let newBoard; let explosionSquares = [];
-          if (isCap || isEP) {
-            const target = isEP ? (isWhitePiece(movingPiece) ? [row + 1, col] : [row - 1, col]) : [row, col];
-            const result = applyAtomicExplosion(board, target);
-            newBoard = result.newBoard; explosionSquares = result.explosionSquares;
-            newBoard[fR][fC] = null;
-          } else {
-            newBoard = board.map(r => [...r]);
-            newBoard[row][col] = movingPiece; newBoard[fR][fC] = null;
-            if (isCastling) {
-              const rCol = col === 6 ? 7 : 0; const rTo = col === 6 ? 5 : 3;
-              newBoard[row][rTo] = newBoard[row][rCol]; newBoard[row][rCol] = null;
-            }
-          }
-          if (movingPiece.toLowerCase() === 'k') kingMoved[getPieceColor(movingPiece)] = true;
-          if (movingPiece.toLowerCase() === 'r') {
-             if (fR === 7 && fC === 0) rookMoved.whiteQueenSide = true;
-             else if (fR === 7 && fC === 7) rookMoved.whiteKingSide = true;
-             else if (fR === 0 && fC === 0) rookMoved.blackQueenSide = true;
-             else if (fR === 0 && fC === 7) rookMoved.blackKingSide = true;
-          }
-          if (movingPiece.toLowerCase() === 'p' && (row === 0 || row === 7)) newBoard[row][col] = isWhitePiece(movingPiece) ? 'Q' : 'q';
-          
-          lastMove = { from: selectedSquare, to: [row, col], piece: movingPiece };
-          board = newBoard;
-          moveHistory.push(moveText);
-          currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
-          selectedSquare = null;
-          lastTimerUpdate = Date.now();
-          
-          if (explosionSquares.length > 0) {
-            explosions = explosionSquares; render();
-            setTimeout(() => { explosions = []; render(); }, 600);
-          } else { render(); }
-          gameOver = checkGameOver(board);
-          if (gameMode === 'online') {
-              await updateDoc(doc(db, 'games', gameCode), { 
-                board: board.flat(), 
-                currentPlayer, 
-                lastMove, 
-                kingMoved, 
-                rookMoved, 
-                moveHistory,
-                whiteTime,
-                blackTime,
-                lastTimerUpdate: Date.now()
-              });
-          }
-        } else {
-            const grid = document.getElementById('chess-grid');
-            grid.classList.add('shake-error');
-            setTimeout(() => grid.classList.remove('shake-error'), 400);
-            selectedSquare = null;
-            render();
-        }
-      } else if (targetPiece && getPieceColor(targetPiece) === currentPlayer) {
-        selectedSquare = [row, col];
-        render();
-      }
-    }
-
-    async function createGame() {
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      gameCode = code; playerColor = 'white'; gameMode = 'online';
-      whiteTime = selectedTimeControl;
-      blackTime = selectedTimeControl;
-      await setDoc(doc(db, 'games', code), { 
-        board: createInitialBoard().flat(), 
-        currentPlayer: 'white', 
-        playerWhite: userId, 
-        kingMoved, 
-        rookMoved, 
-        moveHistory: [],
-        whiteTime,
-        blackTime,
-        lastTimerUpdate: Date.now(),
-        gameOver: null
-      });
-      startSync();
-      startTimer();
-    }
-
-    async function joinGame() {
-      const code = document.getElementById('inputCode').value;
-      const snap = await getDoc(doc(db, 'games', code));
-      if (!snap.exists() || snap.data().playerBlack) return alert("Code invalide");
-      gameCode = code; playerColor = 'black'; gameMode = 'online';
-      const data = snap.data();
-      whiteTime = data.whiteTime || 600;
-      blackTime = data.blackTime || 600;
-      await updateDoc(doc(db, 'games', code), { playerBlack: userId, playerBlackActive: serverTimestamp() });
-      startSync();
-      startTimer();
-    }
-
-    function startSync() {
-      unsubscribe = onSnapshot(doc(db, 'games', gameCode), (s) => {
-        const d = s.data(); if (!d) return;
-        board = []; for(let i=0; i<8; i++) board.push(d.board.slice(i*8, (i+1)*8));
-        currentPlayer = d.currentPlayer; lastMove = d.lastMove;
-        kingMoved = d.kingMoved; rookMoved = d.rookMoved;
-        moveHistory = d.moveHistory || [];
-        
-        if (d.whiteTime !== undefined) whiteTime = d.whiteTime;
-        if (d.blackTime !== undefined) blackTime = d.blackTime;
-        if (d.lastTimerUpdate) lastTimerUpdate = d.lastTimerUpdate;
-        if (d.gameOver) gameOver = d.gameOver;
-        
-        opponentConnected = playerColor === 'white' ? !!d.playerBlack : !!d.playerWhite;
-        if (!gameOver) gameOver = checkGameOver(board);
-        render();
-      });
-    }
-
-    function setTimeControl(seconds) {
-      selectedTimeControl = seconds;
-      document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('ring-2', 'ring-yellow-400'));
-      event.target.classList.add('ring-2', 'ring-yellow-400');
-    }
-
-    function render() {
-      const app = document.getElementById('app');
-      if (gameMode === 'menu') {
-        app.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-          <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
-            <h1 class="text-4xl font-bold text-white mb-8">☢️ ATOMIC CHESS</h1>
-            <div class="mb-6">
-              <p class="text-slate-400 text-sm mb-3">⏱️ Contrôle du temps</p>
-              <div class="grid grid-cols-4 gap-2">
-                <button onclick="window.setTimeControl(180)" class="time-btn bg-slate-700 text-white py-2 rounded-lg hover:bg-slate-600 text-sm">3min</button>
-                <button onclick="window.setTimeControl(300)" class="time-btn bg-slate-700 text-white py-2 rounded-lg hover:bg-slate-600 text-sm">5min</button>
-                <button onclick="window.setTimeControl(600)" class="time-btn bg-slate-700 text-white py-2 rounded-lg hover:bg-slate-600 text-sm ring-2 ring-yellow-400">10min</button>
-                <button onclick="window.setTimeControl(900)" class="time-btn bg-slate-700 text-white py-2 rounded-lg hover:bg-slate-600 text-sm">15min</button>
-              </div>
-            </div>
-            <button onclick="window.startLocal()" class="w-full bg-purple-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-purple-700 transition transform hover:scale-105">LOCAL</button>
-            <button onclick="window.createGame()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-blue-700 transition transform hover:scale-105">CRÉER EN LIGNE</button>
-            <input type="text" id="inputCode" placeholder="Code à 6 chiffres" class="w-full p-4 rounded-xl mb-4 text-center font-bold text-slate-900">
-            <button onclick="window.joinGame()" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition transform hover:scale-105">REJOINDRE</button>
-          </div>
-        </div>`;
-        return;
-      }
-
-      const validMoves = selectedSquare ? getValidMoves(selectedSquare[0], selectedSquare[1]) : [];
-      const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-      const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
-      const displayFiles = (playerColor === 'black') ? [...files].reverse() : files;
-      const displayRanks = (playerColor === 'black') ? [...ranks].reverse() : ranks;
-
-      const boardCells = [];
-      const displayBoard = (playerColor === 'black') ? board.slice().reverse().map(r => r.slice().reverse()) : board;
-      
-      displayBoard.forEach((row, rIdx) => {
-        const actualR = (playerColor === 'black') ? 7 - rIdx : rIdx;
-        boardCells.push(`<div class="coord coord-row">${displayRanks[rIdx]}</div>`);
-        row.forEach((piece, cIdx) => {
-          const actualC = (playerColor === 'black') ? 7 - cIdx : cIdx;
-          const isLight = (actualR + actualC) % 2 === 0;
-          const isSel = selectedSquare && selectedSquare[0] === actualR && selectedSquare[1] === actualC;
-          const isExplo = explosions.some(e => e[0] === actualR && e[1] === actualC);
-          const isPossibleMove = validMoves.some(m => m[0] === actualR && m[1] === actualC);
-          const hasPiece = piece !== null;
-          boardCells.push(`<div onclick="window.handleSquareClick(${actualR}, ${actualC})" 
-                 class="relative w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center text-3xl sm:text-5xl cursor-pointer
-                 ${isLight ? 'bg-[#eeeed2]' : 'bg-[#769656]'} ${isSel ? 'bg-[#f6f669]' : ''} 
-                 ${isExplo ? 'bg-red-500 animate-pulse' : ''}">
-                 ${isPossibleMove ? (hasPiece ? `<div class="capture-ring absolute"></div>` : `<div class="move-dot"></div>`) : ''}
-                 <span class="chess-piece relative z-10" 
-                       style="color: ${isWhitePiece(piece) ? '#FFF' : '#000'}; 
-                       text-shadow: ${isWhitePiece(piece) ? '0 0 2px #000, 0 0 5px rgba(0,0,0,0.5)' : 'none'};">
-                    ${piece ? pieceSymbols[piece] : ''}
-                 </span>
-            </div>`);
-        });
-      });
-
-      boardCells.push(`<div></div>`);
-      displayFiles.forEach(f => boardCells.push(`<div class="coord coord-col">${f}</div>`));
-
-      let historyHTML = "";
-      for (let i = 0; i < moveHistory.length; i += 2) {
-        historyHTML += `<div class="flex border-b border-slate-700 py-1.5 text-xs sm:text-sm">
-            <span class="w-8 text-slate-500 font-mono">${Math.floor(i/2) + 1}.</span>
-            <span class="flex-1 font-bold text-white">${moveHistory[i]}</span>
-            <span class="flex-1 font-bold text-white">${moveHistory[i+1] || ""}</span>
-          </div>`;
-      }
-
-      const whiteTimerClass = (whiteTime < 30 && currentPlayer === 'white') ? 'timer-warning' : '';
-      const blackTimerClass = (blackTime < 30 && currentPlayer === 'black') ? 'timer-warning' : '';
-      
-      // Texte d'attente si la partie n'a pas démarré
-      const isGameWaiting = gameMode === 'online' && (!opponentConnected || moveHistory.length === 0);
-
-      app.innerHTML = `
-        <div class="min-h-screen bg-slate-900 text-white p-2 sm:p-4 flex flex-col items-center">
-          
-          <div class="mb-4 w-full max-w-[350px] lg:w-72 bg-slate-800 rounded-xl p-3 shadow-xl">
-            <div class="flex justify-between items-center mb-2">
-              <span class="text-sm ${currentPlayer === 'black' ? 'text-yellow-400 font-bold' : 'text-slate-400'}">⚫ NOIRS</span>
-              <span class="text-2xl font-mono font-bold ${blackTimerClass}">${isGameWaiting && currentPlayer === 'black' ? '...' : formatTime(blackTime)}</span>
-            </div>
-            <div class="flex justify-between items-center">
-              <span class="text-sm ${currentPlayer === 'white' ? 'text-yellow-400 font-bold' : 'text-slate-400'}">⚪ BLANCS</span>
-              <span class="text-2xl font-mono font-bold ${whiteTimerClass}">${isGameWaiting && currentPlayer === 'white' ? 'En attente' : formatTime(whiteTime)}</span>
-            </div>
-          </div>
-          
-          <div class="mb-4 text-center">
-            <h2 class="text-xl sm:text-2xl font-bold uppercase tracking-widest ${currentPlayer === 'white' ? 'text-white' : 'text-slate-400'}">
-              ${gameOver ? 'Fin de partie' : (currentPlayer === 'white' ? 'Blancs' : 'Noirs')}
-            </h2>
-          </div>
-          
-          <div class="flex flex-col lg:flex-row gap-6 items-center lg:items-start">
-            <div id="chess-grid" class="grid grid-cols-[20px_repeat(8,1fr)] bg-slate-800 p-1 border-2 border-slate-700 shadow-2xl rounded-sm">
-              ${boardCells.join('')}
-            </div>
-
-            <div class="w-full max-w-[350px] lg:w-72 bg-slate-800 rounded-xl p-4 shadow-xl flex flex-col h-[200px] lg:h-[512px]">
-              <h3 class="font-bold border-b border-slate-600 pb-2 mb-2 flex justify-between items-center">
-                <span>📜 HISTORIQUE</span>
-                <span class="text-[10px] bg-slate-700 px-2 py-0.5 rounded">${moveHistory.length}</span>
-              </h3>
-              <div class="history-scroll overflow-y-auto flex-1 pr-1">${moveHistory.length === 0 ? '<p class="text-slate-500 text-center mt-10">Début de partie</p>' : historyHTML}</div>
-            </div>
-          </div>
-
-          <div class="mt-6 flex gap-4">
-            <button onclick="location.reload()" class="bg-slate-700 px-6 py-2 rounded-lg hover:bg-slate-600 transition text-sm">MENU</button>
-            ${gameCode ? `<div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-600 text-sm">CODE: <span class="text-yellow-400 font-mono">${gameCode}</span></div>` : ''}
-          </div>
-          
-          ${gameOver ? `<div class="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 p-6 text-center">
-             <h1 class="text-5xl font-black text-white mb-2">${gameOver === 'draw' ? 'ÉGALITÉ' : (gameOver === 'white' ? 'BLANCS GAGNENT' : 'NOIRS GAGNENT')}</h1>
-             <p class="text-yellow-500 text-2xl font-bold mb-8 italic">${whiteTime === 0 || blackTime === 0 ? 'Temps écoulé !' : 'Le Roi a été pulvérisé !'}</p>
-             <button onclick="location.reload()" class="bg-blue-600 text-white px-12 py-4 rounded-full font-bold text-xl hover:scale-110 transition shadow-lg">REJOUER</button>
-          </div>` : ''}
-        </div>`;
-        
-        const historyDiv = document.querySelector('.history-scroll');
-        if (historyDiv) historyDiv.scrollTop = historyDiv.scrollHeight;
-    }
-    window.startLocal = () => { gameMode = 'local'; startTimer(); render(); };
-    window.createGame = createGame;
-    window.joinGame = joinGame;
-    window.handleSquareClick = handleSquareClick;
-    window.setTimeControl = setTimeControl;
-    render();
-  </script>
 </head>
-<body><div id="app"></div></body>
+<body class="bg-slate-900">
+  <div id="app"></div>
+
+  <script type="module">
+    import { ChessGame } from './src/core.js';
+    import { AtomicRules } from './src/variants/atomic.js';
+    import { ChessUI } from './src/ui.js';
+    import { FirebaseManager } from './src/firebase.js';
+
+    // 1. Initialisation
+    const rules = new AtomicRules();
+    const game = new ChessGame(rules);
+    const ui = new ChessUI(game, 'app');
+    const fb = new FirebaseManager();
+
+    // 2. Gestion des clics (Pont entre UI et Game)
+    window.onSquareClick = async (r, c) => {
+        // Logique de sélection
+        if (!ui.selectedSquare) {
+            const piece = game.board[r][c];
+            // On ne peut sélectionner que ses propres pièces
+            if (piece && game.rules.getPieceColor(piece) === game.turn) {
+                ui.selectedSquare = [r, c];
+                ui.render();
+            }
+        } else {
+            // Tentative de mouvement
+            const from = ui.selectedSquare;
+            const to = [r, c];
+            
+            // Si on clique sur la même case ou une pièce amie, on change la sélection
+            const targetPiece = game.board[r][c];
+            if (targetPiece && game.rules.getPieceColor(targetPiece) === game.turn) {
+                 ui.selectedSquare = [r,c];
+                 ui.render();
+                 return;
+            }
+
+            const result = game.playMove(from, to);
+            
+            if (result.success) {
+                ui.selectedSquare = null;
+                if (result.explosions && result.explosions.length > 0) {
+                    ui.triggerExplosion(result.explosions);
+                } else {
+                    ui.render();
+                }
+                
+                // Sync Online
+                if (fb.gameId) await fb.sendMove(game);
+
+            } else {
+                // Erreur visuelle (Shake)
+                const grid = document.getElementById('chess-grid');
+                grid.classList.add('shake-error');
+                setTimeout(() => grid.classList.remove('shake-error'), 400);
+                ui.selectedSquare = null;
+                ui.render();
+            }
+        }
+    };
+
+    // 3. Boucle de jeu (Timer)
+    game.startTimer(() => {
+        ui.render(); // Met à jour l'affichage du chrono
+    });
+
+    // Premier rendu
+    ui.render();
+
+    // --- Fonctions globales pour les boutons Menu (à améliorer plus tard) ---
+    window.startLocal = () => { /* déjà lancé par défaut */ };
+    window.createOnlineGame = async () => {
+        const code = await fb.createGame(game);
+        alert("Code de partie : " + code);
+        ui.render();
+    };
+    
+  </script>
+</body>
 </html>
