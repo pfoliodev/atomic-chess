@@ -1,101 +1,52 @@
-<script type="module">
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Échecs Atomiques Pro (Refactored)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Tes animations originales */
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+    .shake-error { animation: shake 0.2s ease-in-out 0s 2; }
+    .chess-piece { font-family: "Arial", sans-serif; user-select: none; }
+    .coord { font-size: 10px; font-weight: bold; color: #94a3b8; display: flex; align-items: center; justify-content: center; }
+    .coord-row { width: 20px; }
+    .coord-col { height: 20px; }
+  </style>
+</head>
+<body class="bg-slate-900">
+  <div id="app"></div>
+
+  <script type="module">
     import { ChessGame } from './src/core.js';
     import { AtomicRules } from './src/variants/atomic.js';
     import { ChessUI } from './src/ui.js';
     import { FirebaseManager } from './src/firebase.js';
 
-    // 1. Initialisation (On ne lance pas le jeu tout de suite)
+    // 1. Initialisation
     const rules = new AtomicRules();
-    let game = null; // Sera créé quand on clique sur "Start"
-    const fb = new FirebaseManager();
-    
-    // On crée une fausse game juste pour initier l'UI (hack temporaire acceptable)
-    // Ou mieux : on modifie UI pour accepter game=null au début.
-    // Pour faire simple ici : on passe null et on gère dans UI, ou on crée une game dummy.
-    // Option simple :
-    game = new ChessGame(rules); 
+    const game = new ChessGame(rules);
     const ui = new ChessUI(game, 'app');
+    const fb = new FirebaseManager();
 
-    // 2. Fonctions globales appelées par le HTML (window)
-    
-    window.setTimeControl = (seconds) => {
-        ui.selectedTime = seconds;
-        ui.render(); // Rafraîchir pour voir la bordure jaune
-    };
-
-    window.startLocal = () => {
-        // On recrée une partie propre avec le bon temps
-        game = new ChessGame(rules, ui.selectedTime);
-        ui.game = game; // On met à jour la référence de l'UI
-        
-        ui.switchToGame();
-        game.startTimer(() => ui.render());
-    };
-
-    window.createOnlineGame = async () => {
-        game = new ChessGame(rules, ui.selectedTime);
-        ui.game = game;
-        
-        const code = await fb.createGame(game);
-        // Petit hack : on stocke le code quelque part ou on l'affiche
-        alert("Code de partie : " + code + "\nPartage-le à ton ami !");
-        
-        ui.setPlayerColor('white');
-        ui.switchToGame();
-        
-        // On attend que l'autre joueur rejoigne pour lancer le timer ?
-        // Dans ton code original, le timer démarrait direct. On garde ça.
-        game.startTimer(() => ui.render()); 
-        
-        // Sync Firebase
-        fb.listen((data) => {
-            // Mise à jour du state local quand Firebase change
-            // (À implémenter : merge data into game)
-            // Pour l'instant on garde simple
-        });
-    };
-    
-    window.joinOnlineGame = async () => {
-        const code = document.getElementById('inputCode').value;
-        if(!code) return alert("Il faut un code !");
-        
-        try {
-            // Ici, il faudrait une logique pour récupérer l'état initial depuis FB
-            // Pour l'instant, on reset juste :
-            game = new ChessGame(rules);
-            ui.game = game;
-            
-            await fb.joinGame(code, (data) => {
-                // Callback quand la partie change sur Firebase
-                // C'est ici qu'on mettrait à jour game.board, game.turn, etc.
-                // updateGameFromData(game, data);
-                // ui.render();
-            });
-            
-            ui.setPlayerColor('black');
-            ui.switchToGame();
-            game.startTimer(() => ui.render());
-            
-        } catch (e) {
-            alert("Erreur : " + e.message);
-        }
-    };
-
+    // 2. Gestion des clics (Pont entre UI et Game)
     window.onSquareClick = async (r, c) => {
-        if (ui.view !== 'game') return; // Sécurité
-
-        // ... (Le reste de ta logique de clic reste identique à avant) ...
+        // Logique de sélection
         if (!ui.selectedSquare) {
             const piece = game.board[r][c];
+            // On ne peut sélectionner que ses propres pièces
             if (piece && game.rules.getPieceColor(piece) === game.turn) {
                 ui.selectedSquare = [r, c];
                 ui.render();
             }
         } else {
+            // Tentative de mouvement
             const from = ui.selectedSquare;
             const to = [r, c];
-            const targetPiece = game.board[r][c];
             
+            // Si on clique sur la même case ou une pièce amie, on change la sélection
+            const targetPiece = game.board[r][c];
             if (targetPiece && game.rules.getPieceColor(targetPiece) === game.turn) {
                  ui.selectedSquare = [r,c];
                  ui.render();
@@ -106,23 +57,42 @@
             
             if (result.success) {
                 ui.selectedSquare = null;
-                if (result.explosions && result.explosions.length > 0) ui.triggerExplosion(result.explosions);
-                else ui.render();
-                
-                if (fb.gameId) await fb.sendMove(game);
-            } else {
-                const grid = document.getElementById('chess-grid');
-                if(grid) {
-                    grid.classList.add('shake-error');
-                    setTimeout(() => grid.classList.remove('shake-error'), 400);
+                if (result.explosions && result.explosions.length > 0) {
+                    ui.triggerExplosion(result.explosions);
+                } else {
+                    ui.render();
                 }
+                
+                // Sync Online
+                if (fb.gameId) await fb.sendMove(game);
+
+            } else {
+                // Erreur visuelle (Shake)
+                const grid = document.getElementById('chess-grid');
+                grid.classList.add('shake-error');
+                setTimeout(() => grid.classList.remove('shake-error'), 400);
                 ui.selectedSquare = null;
                 ui.render();
             }
         }
     };
 
-    // Premier affichage : Le Menu !
+    // 3. Boucle de jeu (Timer)
+    game.startTimer(() => {
+        ui.render(); // Met à jour l'affichage du chrono
+    });
+
+    // Premier rendu
     ui.render();
 
+    // --- Fonctions globales pour les boutons Menu (à améliorer plus tard) ---
+    window.startLocal = () => { /* déjà lancé par défaut */ };
+    window.createOnlineGame = async () => {
+        const code = await fb.createGame(game);
+        alert("Code de partie : " + code);
+        ui.render();
+    };
+    
   </script>
+</body>
+</html>
