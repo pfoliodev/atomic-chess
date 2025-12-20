@@ -53,12 +53,11 @@
     let kingMoved = { white: false, black: false };
     let rookMoved = { whiteKingSide: false, whiteQueenSide: false, blackKingSide: false, blackQueenSide: false };
     
-    // Timer variables
-    let whiteTime = 600; // 10 minutes en secondes
+    let whiteTime = 600;
     let blackTime = 600;
     let timerInterval = null;
     let lastTimerUpdate = Date.now();
-    let selectedTimeControl = 600; // Default 10min
+    let selectedTimeControl = 600;
 
     const pieceSymbols = {
       'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟',
@@ -91,7 +90,14 @@
       lastTimerUpdate = Date.now();
       
       timerInterval = setInterval(() => {
-        if (gameOver || gameMode !== 'online') return;
+        // MODIFICATION : Le chrono ne tourne que si la partie est lancée ET qu'un adversaire est là
+        const isGameStarted = moveHistory.length > 0;
+        const canTick = !gameOver && (gameMode === 'local' || (gameMode === 'online' && opponentConnected && isGameStarted));
+
+        if (!canTick) {
+          lastTimerUpdate = Date.now(); // On reset pour éviter le saut de temps au démarrage
+          return;
+        }
         
         const now = Date.now();
         const elapsed = Math.floor((now - lastTimerUpdate) / 1000);
@@ -103,32 +109,19 @@
             whiteTime = Math.max(0, whiteTime - elapsed);
             if (whiteTime === 0) {
               gameOver = 'black';
-              if (gameCode) {
-                updateDoc(doc(db, 'games', gameCode), { 
-                  gameOver: 'black',
-                  whiteTime: 0,
-                  blackTime
-                });
-              }
+              if (gameCode) updateDoc(doc(db, 'games', gameCode), { gameOver: 'black', whiteTime: 0 });
             }
           } else {
             blackTime = Math.max(0, blackTime - elapsed);
             if (blackTime === 0) {
               gameOver = 'white';
-              if (gameCode) {
-                updateDoc(doc(db, 'games', gameCode), { 
-                  gameOver: 'white',
-                  whiteTime,
-                  blackTime: 0
-                });
-              }
+              if (gameCode) updateDoc(doc(db, 'games', gameCode), { gameOver: 'white', blackTime: 0 });
             }
           }
           
           render();
           
-          // Update Firebase every 2 seconds
-          if (gameCode && elapsed % 2 === 0) {
+          if (gameCode && elapsed % 2 === 0 && gameMode === 'online') {
             updateDoc(doc(db, 'games', gameCode), {
               whiteTime,
               blackTime,
@@ -330,6 +323,7 @@
              else if (fR === 0 && fC === 7) rookMoved.blackKingSide = true;
           }
           if (movingPiece.toLowerCase() === 'p' && (row === 0 || row === 7)) newBoard[row][col] = isWhitePiece(movingPiece) ? 'Q' : 'q';
+          
           lastMove = { from: selectedSquare, to: [row, col], piece: movingPiece };
           board = newBoard;
           moveHistory.push(moveText);
@@ -343,17 +337,17 @@
           } else { render(); }
           gameOver = checkGameOver(board);
           if (gameMode === 'online') {
-             await updateDoc(doc(db, 'games', gameCode), { 
-               board: board.flat(), 
-               currentPlayer, 
-               lastMove, 
-               kingMoved, 
-               rookMoved, 
-               moveHistory,
-               whiteTime,
-               blackTime,
-               lastTimerUpdate: Date.now()
-             });
+              await updateDoc(doc(db, 'games', gameCode), { 
+                board: board.flat(), 
+                currentPlayer, 
+                lastMove, 
+                kingMoved, 
+                rookMoved, 
+                moveHistory,
+                whiteTime,
+                blackTime,
+                lastTimerUpdate: Date.now()
+              });
           }
         } else {
             const grid = document.getElementById('chess-grid');
@@ -410,7 +404,6 @@
         kingMoved = d.kingMoved; rookMoved = d.rookMoved;
         moveHistory = d.moveHistory || [];
         
-        // Sync timers
         if (d.whiteTime !== undefined) whiteTime = d.whiteTime;
         if (d.blackTime !== undefined) blackTime = d.blackTime;
         if (d.lastTimerUpdate) lastTimerUpdate = d.lastTimerUpdate;
@@ -434,7 +427,6 @@
         app.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
           <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
             <h1 class="text-4xl font-bold text-white mb-8">☢️ ATOMIC CHESS</h1>
-            
             <div class="mb-6">
               <p class="text-slate-400 text-sm mb-3">⏱️ Contrôle du temps</p>
               <div class="grid grid-cols-4 gap-2">
@@ -444,7 +436,6 @@
                 <button onclick="window.setTimeControl(900)" class="time-btn bg-slate-700 text-white py-2 rounded-lg hover:bg-slate-600 text-sm">15min</button>
               </div>
             </div>
-            
             <button onclick="window.startLocal()" class="w-full bg-purple-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-purple-700 transition transform hover:scale-105">LOCAL</button>
             <button onclick="window.createGame()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-blue-700 transition transform hover:scale-105">CRÉER EN LIGNE</button>
             <input type="text" id="inputCode" placeholder="Code à 6 chiffres" class="w-full p-4 rounded-xl mb-4 text-center font-bold text-slate-900">
@@ -466,7 +457,6 @@
       displayBoard.forEach((row, rIdx) => {
         const actualR = (playerColor === 'black') ? 7 - rIdx : rIdx;
         boardCells.push(`<div class="coord coord-row">${displayRanks[rIdx]}</div>`);
-        
         row.forEach((piece, cIdx) => {
           const actualC = (playerColor === 'black') ? 7 - cIdx : cIdx;
           const isLight = (actualR + actualC) % 2 === 0;
@@ -474,7 +464,6 @@
           const isExplo = explosions.some(e => e[0] === actualR && e[1] === actualC);
           const isPossibleMove = validMoves.some(m => m[0] === actualR && m[1] === actualC);
           const hasPiece = piece !== null;
-
           boardCells.push(`<div onclick="window.handleSquareClick(${actualR}, ${actualC})" 
                  class="relative w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center text-3xl sm:text-5xl cursor-pointer
                  ${isLight ? 'bg-[#eeeed2]' : 'bg-[#769656]'} ${isSel ? 'bg-[#f6f669]' : ''} 
@@ -503,21 +492,23 @@
 
       const whiteTimerClass = (whiteTime < 30 && currentPlayer === 'white') ? 'timer-warning' : '';
       const blackTimerClass = (blackTime < 30 && currentPlayer === 'black') ? 'timer-warning' : '';
+      
+      // Texte d'attente si la partie n'a pas démarré
+      const isGameWaiting = gameMode === 'online' && (!opponentConnected || moveHistory.length === 0);
 
       app.innerHTML = `
         <div class="min-h-screen bg-slate-900 text-white p-2 sm:p-4 flex flex-col items-center">
           
-          ${gameMode === 'online' ? `
           <div class="mb-4 w-full max-w-[350px] lg:w-72 bg-slate-800 rounded-xl p-3 shadow-xl">
             <div class="flex justify-between items-center mb-2">
               <span class="text-sm ${currentPlayer === 'black' ? 'text-yellow-400 font-bold' : 'text-slate-400'}">⚫ NOIRS</span>
-              <span class="text-2xl font-mono font-bold ${blackTimerClass}">${formatTime(blackTime)}</span>
+              <span class="text-2xl font-mono font-bold ${blackTimerClass}">${isGameWaiting && currentPlayer === 'black' ? '...' : formatTime(blackTime)}</span>
             </div>
             <div class="flex justify-between items-center">
               <span class="text-sm ${currentPlayer === 'white' ? 'text-yellow-400 font-bold' : 'text-slate-400'}">⚪ BLANCS</span>
-              <span class="text-2xl font-mono font-bold ${whiteTimerClass}">${formatTime(whiteTime)}</span>
+              <span class="text-2xl font-mono font-bold ${whiteTimerClass}">${isGameWaiting && currentPlayer === 'white' ? 'En attente' : formatTime(whiteTime)}</span>
             </div>
-          </div>` : ''}
+          </div>
           
           <div class="mb-4 text-center">
             <h2 class="text-xl sm:text-2xl font-bold uppercase tracking-widest ${currentPlayer === 'white' ? 'text-white' : 'text-slate-400'}">
@@ -554,7 +545,7 @@
         const historyDiv = document.querySelector('.history-scroll');
         if (historyDiv) historyDiv.scrollTop = historyDiv.scrollHeight;
     }
-    window.startLocal = () => { gameMode = 'local'; render(); };
+    window.startLocal = () => { gameMode = 'local'; startTimer(); render(); };
     window.createGame = createGame;
     window.joinGame = joinGame;
     window.handleSquareClick = handleSquareClick;
