@@ -12,6 +12,12 @@ export class ChessUI {
         // NOUVEAU : On gère l'état de l'affichage
         this.view = 'menu'; // 'menu' ou 'game'
         this.selectedTime = 600; // 10 min par défaut
+
+            // On crée un "getter" qui va chercher l'élément seulement quand on l'appelle
+    }
+
+    get container() {
+        return document.getElementById(this.containerId);
     }
 
     // --- GESTION DES VUES ---
