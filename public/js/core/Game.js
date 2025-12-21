@@ -131,8 +131,9 @@ export class Game {
     // Applique le mouvement via la variante
     const result = this.variant.applyMove(this.board, from, to, piece);
     
-    this.board = result.board;
+this.board = result.board;
     this.explosions = result.explosionSquares;
+    this.portalAnimation = result.portalAnimation || null;
     this.moveHistory.push(result.moveNotation);
     this.currentPlayer = this.currentPlayer === 'white' ? 'black' : 'white';
     this.selectedSquare = null;

@@ -16,8 +16,17 @@
     .coord { font-size: 10px; font-weight: bold; color: #94a3b8; display: flex; align-items: center; justify-content: center; }
     .coord-row { width: 20px; }
     .coord-col { height: 20px; }
-    @keyframes pulse-timer { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes pulse-timer { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
     .timer-warning { animation: pulse-timer 1s infinite; color: #ef4444 !important; }
+    
+    /* Animations pour les portails */
+    @keyframes portal-pulse { 0%, 100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.1); } }
+    @keyframes portal-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes portal-ping { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(2); opacity: 0; } }
+    
+    .portal-glow { animation: portal-pulse 2s infinite; }
+    .portal-spin { animation: portal-spin 3s linear infinite; }
+    .portal-ping { animation: portal-ping 1s ease-out; }
   </style>
 </head>
 <body>
