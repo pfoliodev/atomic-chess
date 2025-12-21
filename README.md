@@ -1,10 +1,12 @@
-# ☢️ Atomic Chess Pro
+# ♟️ Chess Variants Pro
 
-Application d'échecs en ligne avec variante Atomic, développée avec une architecture modulaire permettant l'ajout facile de nouvelles variantes.
+Application d'échecs en ligne avec variantes multiples, développée avec une architecture modulaire permettant l'ajout facile de nouvelles variantes.
 
 ## 🎮 Fonctionnalités
 
-- ⚛️ **Mode Atomic** : Les captures provoquent des explosions 3×3 (pions immunisés)
+- ☢️ **Atomic Chess** : Les captures provoquent des explosions 3×3 (pions immunisés)
+- 🏔️ **King of the Hill** : Amener son roi au centre pour gagner
+- ♟️ **Standard Chess** : Échecs classiques traditionnels
 - 👥 **Mode Local** : 2 joueurs sur le même appareil
 - 🌐 **Mode Online** : Parties en ligne via Firebase
 - ⏱️ **Chronomètre** : 3, 5, 10 ou 15 minutes par joueur
@@ -61,6 +63,7 @@ atomic-chess/
 │       ├── variants/           # Variantes de jeu
 │       │   ├── BaseVariant.js
 │       │   ├── AtomicVariant.js
+│       │   ├── KingOfTheHillVariant.js
 │       │   └── StandardVariant.js
 │       ├── ui/                 # Interface utilisateur
 │       │   ├── Renderer.js
@@ -117,8 +120,9 @@ Voir `ARCHITECTURE.md` pour plus de détails.
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Documentation complète de l'architecture
 - **[CHANGELOG.md](CHANGELOG.md)** - Historique des changements
 
-## 🎮 Règles Atomic Chess
+## 🎮 Variantes disponibles
 
+### ☢️ Atomic Chess
 Dans les échecs atomiques, lorsqu'une pièce capture une autre :
 
 1. 💥 **Explosion** : Toutes les pièces adjacentes (3×3) sont détruites
@@ -126,16 +130,32 @@ Dans les échecs atomiques, lorsqu'une pièce capture une autre :
 3. ♔ **Victoire** : Détruire le roi adverse (pas besoin de mat)
 4. 🎯 **Stratégie unique** : Sacrifices explosifs et attaques par proximité
 
-## 🌟 Exemples de variantes possibles
+### 🏔️ King of the Hill (Roi de la Colline)
+Une variante tactique où l'objectif principal change :
 
-L'architecture permet d'ajouter facilement :
+1. 🎯 **Objectif** : Amener son roi sur l'une des 4 cases centrales (d4, e4, d5, e5)
+2. ⚡ **Victoire instantanée** : Le roi qui atteint la colline gagne immédiatement
+3. 🏃 **Stratégie offensive** : Plus besoin de planquer le roi, il faut courir au centre !
+4. 🛡️ **Double menace** : Protéger son roi tout en attaquant celui de l'adversaire
 
-- ♟️ **Standard Chess** : Échecs classiques
+### ♟️ Standard Chess
+Les échecs classiques traditionnels :
+
+1. ♔ **Mat** : Mettre le roi adverse en échec et mat
+2. 🏰 **Roque** : Protection du roi et activation des tours
+3. 🎯 **Stratégie** : Contrôle du centre, structure de pions, initiative
+4. ⏱️ **Temps** : Gestion de l'horloge pour chaque joueur
+
+## 🌟 Variantes futures possibles
+
+L'architecture modulaire permet d'ajouter facilement :
+
 - 🎲 **Chess960** : Position de départ aléatoire (Fischer Random)
 - ✓✓✓ **Three-Check** : Gagner en mettant 3 échecs
-- 👑 **King of the Hill** : Amener le roi au centre
 - ♻️ **Crazyhouse** : Replacer les pièces capturées
 - 🏰 **Horde** : 36 pions contre armée normale
+- ⚡ **Lightning** : Parties ultra-rapides (1 minute)
+- 🎯 **Antichess** : Perdre toutes ses pièces pour gagner
 
 ## 🤝 Contribution
 
@@ -164,6 +184,7 @@ Pour toute question ou suggestion, n'hésitez pas à ouvrir une issue.
 
 ---
 
-**Version** : 2.0.0  
+**Version** : 2.1.0  
 **Date** : Décembre 2025  
-**Status** : ✅ Production Ready
+**Status** : ✅ Production Ready  
+**Nouveautés** : 🏔️ Ajout de King of the Hill

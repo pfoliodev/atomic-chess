@@ -127,7 +127,7 @@ export class Renderer {
     // Détermine le message selon la variante et la raison de la victoire
     let winMessage = '';
     if (game.gameOver === 'draw') {
-      winMessage = 'Match nul !';
+      winMessage = 'Pat ! Match nul !';
     } else {
       // Vérifie si c'est une victoire King of the Hill
       if (game.variant && game.variant.isKingOnHill && game.variant.isKingOnHill(game.board, game.gameOver)) {
@@ -135,10 +135,10 @@ export class Renderer {
           ? 'Le Roi blanc atteint la colline ! 🏔️' 
           : 'Le Roi noir atteint la colline ! 🏔️';
       } else {
-        // Variante Atomic ou Standard - message générique
+        // Victoire par échec et mat
         winMessage = game.gameOver === 'white' 
-          ? 'Victoire des Blancs !' 
-          : 'Victoire des Noirs !';
+          ? 'Échec et mat ! Les Blancs gagnent ! ♔' 
+          : 'Échec et mat ! Les Noirs gagnent ! ♔';
       }
     }
     
