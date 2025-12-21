@@ -10,16 +10,24 @@ export class MenuUI {
     this.onCreateOnline = null;
     this.onJoinOnline = null;
   }
+  }
 
   /**
    * Rend le menu principal
    */
   render() {
-this.appElement.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+    this.appElement.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
-        <h1 class="text-4xl font-bold text-white mb-8">♟️ CHESS VARIANTS</h1>
+        <h1 class="text-4xl font-bold text-white mb-6">☢️ CHESS VARIANTS</h1>
         <div class="mb-6">
-          <p class="text-slate-400 text-sm mb-3">🎮 Variante</p>
+          <p class="text-slate-400 text-sm mb-3">🎮 Choisir la variante</p>
+          <div class="grid grid-cols-2 gap-2 mb-4">
+            <button data-variant="atomic" class="variant-btn bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 text-sm font-bold ring-2 ring-yellow-400">⚛️ Atomic</button>
+            <button data-variant="portal" class="variant-btn bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 text-sm font-bold">🌀 Portal</button>
+          </div>
+        </div>
+        <div class="mb-6">
+          <p class="text-slate-400 text-sm mb-3">⏱️ Contrôle du temps</p>
           <div class="grid grid-cols-1 gap-2">
             <button data-variant="atomic" class="variant-btn bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-600 text-sm ring-2 ring-yellow-400">☢️ Atomic Chess</button>
             <button data-variant="kingofthehill" class="variant-btn bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-600 text-sm">🏔️ King of the Hill</button>
@@ -48,8 +56,8 @@ this.appElement.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-ce
   /**
    * Attache les gestionnaires d'événements
    */
-attachEventListeners() {
-    // Boutons de variante
+  attachEventListeners() {
+    // Boutons de sélection de variante
     document.querySelectorAll('.variant-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         this.selectedVariant = e.target.dataset.variant;
@@ -67,7 +75,16 @@ attachEventListeners() {
       });
     });
 
-// Bouton Local
+    // Boutons de contrôle du temps
+    document.querySelectorAll('.time-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        this.selectedTimeControl = parseInt(e.target.dataset.time);
+        document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('ring-2', 'ring-yellow-400'));
+        e.target.classList.add('ring-2', 'ring-yellow-400');
+      });
+    });
+
+    // Bouton Local
     const btnLocal = document.getElementById('btn-local');
     if (btnLocal) {
       btnLocal.addEventListener('click', () => {
@@ -77,7 +94,7 @@ attachEventListeners() {
       });
     }
 
-// Bouton Créer en ligne
+    // Bouton Créer en ligne
     const btnCreate = document.getElementById('btn-create');
     if (btnCreate) {
       btnCreate.addEventListener('click', () => {
