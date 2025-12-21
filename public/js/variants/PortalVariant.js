@@ -52,8 +52,8 @@ export class PortalVariant extends BaseVariant {
     // Pour mouvement diagonal (bishop, queen)
     if (Math.abs(rDiff) === Math.abs(cDiff)) {
       const numSteps = Math.abs(rDiff);
-      // Si mouvement long (>4 cases), considéré comme portal - chemin dégagé
-      if (numSteps > 4) return true;
+      // Si mouvement long (>3 cases), considéré comme portal - chemin dégagé
+      if (numSteps > 3) return true;
       const rStep = Math.sign(rDiff);
       const cStep = Math.sign(cDiff);
       for (let i = 1; i < numSteps; i++) {
