@@ -138,13 +138,20 @@ export class Game {
     this.selectedSquare = null;
     this.timer.lastTimerUpdate = Date.now();
 
-    // Vérifie la fin de partie
+// Vérifie la fin de partie
     const gameOverState = this.variant.checkGameOver(this.board);
     if (gameOverState) {
       this.gameOver = gameOverState;
       this.timer.stop();
       if (this.onGameOver) {
-        this.onGameOver(gameOverState, 'checkmate');
+        // Détermine la raison de la fin de partie
+        let reason = 'checkmate';
+        if (this.variant.isKingOnHill && this.variant.isKingOnHill(this.board, gameOverState)) {
+          reason = 'hill';
+        } else if (gameOverState === 'draw') {
+          reason = 'stalemate';
+        }
+        this.onGameOver(gameOverState, reason);
       }
     }
 
