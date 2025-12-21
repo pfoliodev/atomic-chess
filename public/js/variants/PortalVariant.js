@@ -217,6 +217,45 @@ export class PortalVariant extends BaseVariant {
   }
 
   /**
+   * Surcharge : Simule un mouvement avec la logique de portail
+   */
+  getSimulatedBoard(board, from, to, piece) {
+    let simBoard = Board.clone(board);
+    const [fR, fC] = from;
+    const [tR, tC] = to;
+    
+    // Normalise la destination
+    const [normR, normC] = this.normalizePosition(tR, tC);
+    
+    const isCapture = simBoard[normR][normC] !== null;
+    const isEP = this.canCaptureEnPassant(board, from, [normR, normC]);
+    
+    if (isCapture || isEP) {
+      if (isEP) {
+        const captureRow = Board.isWhitePiece(piece) ? normR + 1 : normR - 1;
+        const [captureNormR, captureNormC] = this.normalizePosition(captureRow, normC);
+        simBoard[captureNormR][captureNormC] = null;
+      }
+      simBoard[normR][normC] = piece;
+      simBoard[fR][fC] = null;
+    } else {
+      // Mouvement normal avec portail
+      simBoard[normR][normC] = piece;
+      simBoard[fR][fC] = null;
+      
+      // Gestion du roque (avec normalisation)
+      if (piece.toLowerCase() === 'k' && Math.abs(normC - fC) === 2) {
+        const rCol = normC === 6 ? 7 : 0;
+        const rTo = normC === 6 ? 5 : 3;
+        simBoard[fR][rTo] = simBoard[fR][rCol];
+        simBoard[fR][rCol] = null;
+      }
+    }
+    
+    return simBoard;
+  }
+
+  /**
    * Surcharge : Applique un mouvement avec les animations de portail
    */
   applyMove(board, from, to, piece) {
@@ -276,10 +315,10 @@ export class PortalVariant extends BaseVariant {
         
         // Vérifie si le mouvement est valide (avec portails)
         if (this.checkBasicMove(board, [fromRow, fromCol], [r, c], piece)) {
-          // Vérifie si le mouvement est sûr
-          if (this.isMoveSafe(board, [fromRow, fromCol], [r, c], piece)) {
-            validMoves.push([normR, normC]);
-          }
+// Vérifie si le mouvement est sûr (avec simulation de portail)
+        if (this.isMoveSafeWithPortals(board, [fromRow, fromCol], [r, c], piece)) {
+          validMoves.push([normR, normC]);
+        }
         }
       }
     }
@@ -297,5 +336,44 @@ export class PortalVariant extends BaseVariant {
     }
     
     return uniqueMoves;
+  }
+
+  /**
+   * Vérifie si le mouvement est sûr en tenant compte des portails
+   */
+  isMoveSafeWithPortals(board, from, to, piece) {
+    const myColor = Board.getPieceColor(piece);
+    const futureBoard = this.getSimulatedBoard(board, from, to, piece);
+    
+    // Vérifie si le roi adverse existe encore
+    const opponentColor = myColor === 'white' ? 'black' : 'white';
+    if (!Board.findKing(futureBoard, opponentColor)) return true;
+    
+    const myKingPos = Board.findKing(futureBoard, myColor);
+    if (!myKingPos) return false;
+    
+    // Vérifie si le roi est en échec en tenant compte des portails
+    return !this.isSquareAttackedWithPortals(futureBoard, myKingPos[0], myKingPos[1], myColor);
+  }
+
+  /**
+   * Vérifie si une case est attaquée en tenant compte des portails
+   */
+  isSquareAttackedWithPortals(board, targetRow, targetCol, defenderColor) {
+    const attackerColor = defenderColor === 'white' ? 'black' : 'white';
+    
+    // Vérifie toutes les cases de l'échiquier (car les attaques peuvent venir des portails)
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const piece = board[r][c];
+        if (piece && Board.getPieceColor(piece) === attackerColor) {
+          // Vérifie si cette pièce peut attaquer la cible avec les portails
+          if (this.checkBasicMove(board, [r, c], [targetRow, targetCol], piece, true)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 }
