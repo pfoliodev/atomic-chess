@@ -1,5 +1,7 @@
 import { AtomicVariant } from './variants/AtomicVariant.js';
 import { PortalVariant } from './variants/PortalVariant.js';
+import { KingOfTheHillVariant } from './variants/KingOfTheHillVariant.js';
+import { StandardVariant } from './variants/StandardVariant.js';
 import { Game } from './core/Game.js';
 import { Board } from './core/Board.js';
 import { Renderer } from './ui/Renderer.js';
@@ -81,6 +83,10 @@ class App {
     switch (variantName) {
       case 'portal':
         return new PortalVariant();
+      case 'kingofthehill':
+        return new KingOfTheHillVariant();
+      case 'standard':
+        return new StandardVariant();
       case 'atomic':
       default:
         return new AtomicVariant();
