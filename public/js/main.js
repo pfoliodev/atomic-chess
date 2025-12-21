@@ -67,6 +67,7 @@ class App {
    * Affiche le menu
    */
   showMenu() {
+    console.log("--------------- Derniere version ---------------")
     this.currentMode = 'menu';
     this.menuUI.render();
     
