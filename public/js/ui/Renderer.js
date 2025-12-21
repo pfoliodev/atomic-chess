@@ -160,24 +160,6 @@ export class Renderer {
 
     let portalHTML = '';
     
-    // Effets de portail sur les bords
-    portalHTML += `
-      <!-- Portail gauche -->
-      <div class="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-r from-purple-600 to-transparent opacity-60 animate-pulse"></div>
-      <!-- Portail droit -->
-      <div class="absolute right-0 top-0 bottom-0 w-2 bg-gradient-to-l from-blue-600 to-transparent opacity-60 animate-pulse"></div>
-      <!-- Portail haut -->
-      <div class="absolute top-0 left-0 right-0 h-2 bg-gradient-to-b from-cyan-600 to-transparent opacity-60 animate-pulse"></div>
-      <!-- Portail bas -->
-      <div class="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-t from-pink-600 to-transparent opacity-60 animate-pulse"></div>
-      
-      <!-- Symboles de portail -->
-      <div class="absolute -left-6 top-1/2 transform -translate-y-1/2 text-2xl animate-spin">🌀</div>
-      <div class="absolute -right-6 top-1/2 transform -translate-y-1/2 text-2xl animate-spin">🌀</div>
-      <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-8 text-2xl animate-spin">🌀</div>
-      <div class="absolute bottom-1/2 left-1/2 transform -translate-x-1/2 translate-y-8 text-2xl animate-spin">🌀</div>
-    `;
-    
     // Animation de portail récent si un mouvement vient de traverser un portail
     if (game.portalAnimation) {
       const anim = game.portalAnimation;
@@ -191,34 +173,33 @@ export class Renderer {
    * Rend une animation de portail spécifique
    */
   renderPortalAnimation(animation) {
-    const { type, from, to, piece } = animation;
-    const pieceSymbol = Board.pieceSymbols[piece] || '';
+    const { type } = animation;
     
     let animHTML = '';
     
     switch(type) {
       case 'left':
         animHTML = `
-          <div class="absolute left-0 top-1/2 transform -translate-y-1/2 text-4xl animate-ping">⬅️</div>
-          <div class="absolute right-0 top-1/2 transform -translate-y-1/2 text-4xl animate-ping">➡️</div>
+          <div class="absolute left-0 top-1/2 transform -translate-y-1/2 text-4xl animate-ping z-50">⬅️</div>
+          <div class="absolute right-0 top-1/2 transform -translate-y-1/2 text-4xl animate-ping z-50">➡️</div>
         `;
         break;
       case 'right':
         animHTML = `
-          <div class="absolute right-0 top-1/2 transform -translate-y-1/2 text-4xl animate-ping">➡️</div>
-          <div class="absolute left-0 top-1/2 transform -translate-y-1/2 text-4xl animate-ping">⬅️</div>
+          <div class="absolute right-0 top-1/2 transform -translate-y-1/2 text-4xl animate-ping z-50">➡️</div>
+          <div class="absolute left-0 top-1/2 transform -translate-y-1/2 text-4xl animate-ping z-50">⬅️</div>
         `;
         break;
       case 'top':
         animHTML = `
-          <div class="absolute top-0 left-1/2 transform -translate-x-1/2 text-4xl animate-ping">⬆️</div>
-          <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 text-4xl animate-ping">⬇️</div>
+          <div class="absolute top-0 left-1/2 transform -translate-x-1/2 text-4xl animate-ping z-50">⬆️</div>
+          <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 text-4xl animate-ping z-50">⬇️</div>
         `;
         break;
       case 'bottom':
         animHTML = `
-          <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 text-4xl animate-ping">⬇️</div>
-          <div class="absolute top-0 left-1/2 transform -translate-x-1/2 text-4xl animate-ping">⬆️</div>
+          <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 text-4xl animate-ping z-50">⬇️</div>
+          <div class="absolute top-0 left-1/2 transform -translate-x-1/2 text-4xl animate-ping z-50">⬆️</div>
         `;
         break;
     }

@@ -105,10 +105,45 @@ export class PortalVariant extends BaseVariant {
     
     if (type === 'b') {
       // Les fous peuvent traverser les portails en diagonale
+      
+      // Vérifie d'abord si c'est une diagonale normale
       if (rowDiff === colDiff) {
-        // Vérifie si le chemin est clair en tenant compte des portails
         return this.isDiagonalPathClearWithPortals(board, from, [normR, normC]);
       }
+      
+      // Pour les fous, permet tous les mouvements diagonaux qui peuvent être atteints
+      // en utilisant les portails. On utilise une approche plus permissive.
+      const [fR, fC] = from;
+      const [tR, tC] = to;
+      
+      // Calcule la direction diagonale depuis la position de départ
+      const rowDir = tR > fR ? 1 : -1;
+      const colDir = tC > fC ? 1 : -1;
+      
+      // Simule le mouvement en suivant la direction diagonale avec portails
+      let currentR = fR + rowDir;
+      let currentC = fC + colDir;
+      let steps = 0;
+      const maxSteps = 15; // Protection contre boucles infinies
+      
+      while (steps < maxSteps) {
+        const [normR, normC] = this.normalizePosition(currentR, currentC);
+        
+        // Si on atteint la destination
+        if (normR === tR && normC === tC) {
+          return this.isDiagonalPathClearWithPortals(board, from, [normR, normC]);
+        }
+        
+        // Si on rencontre une pièce avant la destination
+        if (board[normR][normC] !== null) {
+          break;
+        }
+        
+        currentR += rowDir;
+        currentC += colDir;
+        steps++;
+      }
+      
       return false;
     }
     
@@ -151,13 +186,24 @@ export class PortalVariant extends BaseVariant {
     let currentR = fR + rowDir;
     let currentC = fC + colDir;
     
-    while (currentR !== tR || currentC !== tC) {
+    // Limite pour éviter les boucles infinies
+    let maxSteps = 15; // Maximum 8 cases normales + 7 cases de portail
+    let steps = 0;
+    
+    while ((currentR !== tR || currentC !== tC) && steps < maxSteps) {
       const [normR, normC] = this.normalizePosition(currentR, currentC);
+      
+      // Vérifie si on atteint la destination normalisée
+      if (normR === tR && normC === tC) {
+        return true;
+      }
+      
       if (board[normR][normC] !== null) {
         return false;
       }
       currentR += rowDir;
       currentC += colDir;
+      steps++;
     }
     
     return true;
@@ -260,27 +306,30 @@ export class PortalVariant extends BaseVariant {
       }
     }
     
-    // Ajoute les mouvements via portails (qui mènent à des cases normales)
-    const portalMoves = [
-      [-1, fromCol], [8, fromCol], // Portails verticaux
-      [fromRow, -1], [fromRow, 8]  // Portails horizontaux
-    ];
-    
-    for (const [r, c] of portalMoves) {
-      const [normR, normC] = this.normalizePosition(r, c);
-      
-      // Vérifie si la case destination est valide
-      if (normR >= 0 && normR < 8 && normC >= 0 && normC < 8) {
-        const target = board[normR][normC];
-        
-        // Vérifie si la cible n'est pas une pièce alliée
-        if (target && Board.getPieceColor(target) === currentPlayer) continue;
-        
-        // Vérifie si le mouvement via portail est valide
-        if (this.checkBasicMove(board, [fromRow, fromCol], [r, c], piece)) {
-          // Vérifie si le mouvement est sûr
-          if (this.isMoveSafe(board, [fromRow, fromCol], [r, c], piece)) {
-            validMoves.push([normR, normC]);
+    // Ajoute les mouvements via portails pour les pièces qui peuvent traverser
+    if (type === 'b' || type === 'r' || type === 'q') {
+      // Pour les Fous, Tours et Reines : vérifie les mouvements qui traversent les portails
+      for (let r = -1; r <= 8; r++) {
+        for (let c = -1; c <= 8; c++) {
+          // Ignore les cases normales déjà vérifiées
+          if (r >= 0 && r < 8 && c >= 0 && c < 8) continue;
+          
+          const [normR, normC] = this.normalizePosition(r, c);
+          
+          // Vérifie si la case destination est valide
+          if (normR >= 0 && normR < 8 && normC >= 0 && normC < 8) {
+            const target = board[normR][normC];
+            
+            // Vérifie si la cible n'est pas une pièce alliée
+            if (target && Board.getPieceColor(target) === currentPlayer) continue;
+            
+            // Vérifie si le mouvement via portail est valide
+            if (this.checkBasicMove(board, [fromRow, fromCol], [r, c], piece)) {
+              // Vérifie si le mouvement est sûr
+              if (this.isMoveSafe(board, [fromRow, fromCol], [r, c], piece)) {
+                validMoves.push([normR, normC]);
+              }
+            }
           }
         }
       }

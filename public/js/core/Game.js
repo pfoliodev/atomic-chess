@@ -138,6 +138,14 @@ this.board = result.board;
     this.currentPlayer = this.currentPlayer === 'white' ? 'black' : 'white';
     this.selectedSquare = null;
     this.timer.lastTimerUpdate = Date.now();
+    
+    // Efface l'animation de portail après un court délai
+    if (this.portalAnimation) {
+      setTimeout(() => {
+        this.portalAnimation = null;
+        if (this.onStateChange) this.onStateChange();
+      }, 1000);
+    }
 
 // Vérifie la fin de partie
     const gameOverState = this.variant.checkGameOver(this.board);
