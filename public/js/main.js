@@ -1,5 +1,4 @@
 import { AtomicVariant } from './variants/AtomicVariant.js';
-import { AtomicVariant } from './variants/AtomicVariant.js';
 import { PortalVariant } from './variants/PortalVariant.js';
 import { KingOfTheHillVariant } from './variants/KingOfTheHillVariant.js';
 import { StandardVariant } from './variants/StandardVariant.js';
