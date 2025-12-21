@@ -1,4 +1,6 @@
 import { AtomicVariant } from './variants/AtomicVariant.js';
+import { KingOfTheHillVariant } from './variants/KingOfTheHillVariant.js';
+import { StandardVariant } from './variants/StandardVariant.js';
 import { Game } from './core/Game.js';
 import { Board } from './core/Board.js';
 import { Renderer } from './ui/Renderer.js';
@@ -67,17 +69,32 @@ class App {
     this.currentMode = 'menu';
     this.menuUI.render();
     
-    // Configure les callbacks du menu
-    this.menuUI.onStartLocal = (timeControl) => this.startLocalGame(timeControl);
-    this.menuUI.onCreateOnline = (timeControl) => this.createOnlineGame(timeControl);
+// Configure les callbacks du menu
+    this.menuUI.onStartLocal = (timeControl, variant) => this.startLocalGame(timeControl, variant);
+    this.menuUI.onCreateOnline = (timeControl, variant) => this.createOnlineGame(timeControl, variant);
     this.menuUI.onJoinOnline = (code) => this.joinOnlineGame(code);
+  }
+
+/**
+   * Crée une variante selon le choix
+   */
+  createVariant(variantName) {
+    switch (variantName) {
+      case 'kingofthehill':
+        return new KingOfTheHillVariant();
+      case 'standard':
+        return new StandardVariant();
+      case 'atomic':
+      default:
+        return new AtomicVariant();
+    }
   }
 
   /**
    * Démarre une partie locale
    */
-  startLocalGame(timeControl) {
-    const variant = new AtomicVariant();
+  startLocalGame(timeControl, variantName) {
+    const variant = this.createVariant(variantName);
     this.game = new Game(variant, 'local', timeControl);
     this.currentMode = 'local';
     this.gameCode = null;
@@ -87,12 +104,12 @@ class App {
     this.renderer.renderGame(this.game);
   }
 
-  /**
+/**
    * Crée une partie en ligne
    */
-  async createOnlineGame(timeControl) {
+  async createOnlineGame(timeControl, variantName) {
     try {
-      const variant = new AtomicVariant();
+      const variant = this.createVariant(variantName);
       this.game = new Game(variant, 'online', timeControl);
       
       const initialState = {
@@ -115,11 +132,13 @@ class App {
     }
   }
 
-  /**
+/**
    * Rejoint une partie en ligne
    */
   async joinOnlineGame(code) {
     try {
+      // Pour le moment, on suppose que c'est toujours Atomic
+      // TODO: Récupérer le type de variante depuis Firebase
       const variant = new AtomicVariant();
       this.game = new Game(variant, 'online', 600);
       

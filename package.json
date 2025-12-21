@@ -4,7 +4,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "echo 'No build step needed'"
+    "build": "echo 'No build step needed'",
+    "serve": "npx serve . -p 8000",
+    "dev": "npx serve . -p 8000"
   },
   "keywords": [],
   "author": "",

@@ -116,7 +116,7 @@ export class Renderer {
     if (historyDiv) historyDiv.scrollTop = historyDiv.scrollHeight;
   }
 
-  /**
+/**
    * Rend le modal de fin de partie
    */
   renderGameOverModal(game) {
@@ -124,9 +124,27 @@ export class Renderer {
     const blackTime = game.timer.blackTime;
     const isTimeout = whiteTime === 0 || blackTime === 0;
     
+    // Détermine le message selon la variante et la raison de la victoire
+    let winMessage = '';
+    if (game.gameOver === 'draw') {
+      winMessage = 'Match nul !';
+    } else {
+      // Vérifie si c'est une victoire King of the Hill
+      if (game.variant && game.variant.isKingOnHill && game.variant.isKingOnHill(game.board, game.gameOver)) {
+        winMessage = game.gameOver === 'white' 
+          ? 'Le Roi blanc atteint la colline ! 🏔️' 
+          : 'Le Roi noir atteint la colline ! 🏔️';
+      } else {
+        // Variante Atomic ou Standard - message générique
+        winMessage = game.gameOver === 'white' 
+          ? 'Victoire des Blancs !' 
+          : 'Victoire des Noirs !';
+      }
+    }
+    
     return `<div class="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 p-6 text-center">
        <h1 class="text-5xl font-black text-white mb-2">${game.gameOver === 'draw' ? 'ÉGALITÉ' : (game.gameOver === 'white' ? 'BLANCS GAGNENT' : 'NOIRS GAGNENT')}</h1>
-       <p class="text-yellow-500 text-2xl font-bold mb-8 italic">${isTimeout ? 'Temps écoulé !' : 'Le Roi a été pulvérisé !'}</p>
+       <p class="text-yellow-500 text-2xl font-bold mb-8 italic">${isTimeout ? 'Temps écoulé !' : winMessage}</p>
        <button onclick="location.reload()" class="bg-blue-600 text-white px-12 py-4 rounded-full font-bold text-xl hover:scale-110 transition shadow-lg">REJOUER</button>
     </div>`;
   }
