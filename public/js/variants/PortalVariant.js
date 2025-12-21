@@ -82,10 +82,10 @@ export class PortalVariant extends BaseVariant {
       return false;
     }
 
-    // Cavalier : mouvements en L, peut wrapper
+    // Cavalier : mouvements en L, sans wrapping pour éviter les attaques à distance
     if (type === 'n') {
-      const rowDiff = Math.min(Math.abs(tR - fR), 8 - Math.abs(tR - fR));
-      const colDiff = Math.min(Math.abs(tC - fC), 8 - Math.abs(tC - fC));
+      const rowDiff = Math.abs(tR - fR);
+      const colDiff = Math.abs(tC - fC);
       return (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
     }
 
@@ -110,10 +110,10 @@ export class PortalVariant extends BaseVariant {
       return ((rowDiff === colDiff && rowDiff > 0) || (fR === tR && colDiff > 0) || (fC === tC && rowDiff > 0)) && this.isPathClear(board, from, to);
     }
 
-    // Roi : adjacent, peut wrapper
+    // Roi : adjacent, sans wrapping pour éviter les problèmes d'échec
     if (type === 'k') {
-      const rowDiff = Math.min(Math.abs(tR - fR), 8 - Math.abs(tR - fR));
-      const colDiff = Math.min(Math.abs(tC - fC), 8 - Math.abs(tC - fC));
+      const rowDiff = Math.abs(tR - fR);
+      const colDiff = Math.abs(tC - fC);
       return rowDiff <= 1 && colDiff <= 1 && (rowDiff > 0 || colDiff > 0);
     }
 
