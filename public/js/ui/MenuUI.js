@@ -5,6 +5,7 @@ export class MenuUI {
   constructor(appElementId = 'app') {
     this.appElement = document.getElementById(appElementId);
     this.selectedTimeControl = 600;
+    this.selectedVariant = 'atomic';
     this.onStartLocal = null;
     this.onCreateOnline = null;
     this.onJoinOnline = null;
@@ -14,9 +15,17 @@ export class MenuUI {
    * Rend le menu principal
    */
   render() {
-    this.appElement.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+this.appElement.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
-        <h1 class="text-4xl font-bold text-white mb-8">☢️ ATOMIC CHESS DEV</h1>
+        <h1 class="text-4xl font-bold text-white mb-8">♟️ CHESS VARIANTS</h1>
+        <div class="mb-6">
+          <p class="text-slate-400 text-sm mb-3">🎮 Variante</p>
+          <div class="grid grid-cols-1 gap-2">
+            <button data-variant="atomic" class="variant-btn bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-600 text-sm ring-2 ring-yellow-400">☢️ Atomic Chess</button>
+            <button data-variant="kingofthehill" class="variant-btn bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-600 text-sm">🏔️ King of the Hill</button>
+            <button data-variant="standard" class="variant-btn bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-600 text-sm">♟️ Standard Chess</button>
+          </div>
+        </div>
         <div class="mb-6">
           <p class="text-slate-400 text-sm mb-3">⏱️ Contrôle du temps</p>
           <div class="grid grid-cols-4 gap-2">
@@ -39,7 +48,16 @@ export class MenuUI {
   /**
    * Attache les gestionnaires d'événements
    */
-  attachEventListeners() {
+attachEventListeners() {
+    // Boutons de variante
+    document.querySelectorAll('.variant-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        this.selectedVariant = e.target.dataset.variant;
+        document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('ring-2', 'ring-yellow-400'));
+        e.target.classList.add('ring-2', 'ring-yellow-400');
+      });
+    });
+
     // Boutons de contrôle du temps
     document.querySelectorAll('.time-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -49,22 +67,22 @@ export class MenuUI {
       });
     });
 
-    // Bouton Local
+// Bouton Local
     const btnLocal = document.getElementById('btn-local');
     if (btnLocal) {
       btnLocal.addEventListener('click', () => {
         if (this.onStartLocal) {
-          this.onStartLocal(this.selectedTimeControl);
+          this.onStartLocal(this.selectedTimeControl, this.selectedVariant);
         }
       });
     }
 
-    // Bouton Créer en ligne
+// Bouton Créer en ligne
     const btnCreate = document.getElementById('btn-create');
     if (btnCreate) {
       btnCreate.addEventListener('click', () => {
         if (this.onCreateOnline) {
-          this.onCreateOnline(this.selectedTimeControl);
+          this.onCreateOnline(this.selectedTimeControl, this.selectedVariant);
         }
       });
     }
