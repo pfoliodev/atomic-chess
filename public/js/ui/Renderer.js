@@ -130,19 +130,15 @@ export class Renderer {
       winMessage = 'Match nul !';
     } else {
       // Vérifie si c'est une victoire King of the Hill
-      if (game.variant && game.variant.constructor.name === 'KingOfTheHillVariant') {
-        if (game.variant.isKingOnHill(game.board, game.gameOver)) {
-          winMessage = game.gameOver === 'white' 
-            ? 'Le Roi blanc atteint la colline ! 🏔️' 
-            : 'Le Roi noir atteint la colline ! 🏔️';
-        } else {
-          winMessage = 'Le Roi adverse a été capturé !';
-        }
-      } else {
-        // Variante Atomic ou Standard
+      if (game.variant && game.variant.isKingOnHill && game.variant.isKingOnHill(game.board, game.gameOver)) {
         winMessage = game.gameOver === 'white' 
-          ? 'Le Roi noir a été pulvérisé ! ☢️' 
-          : 'Le Roi blanc a été pulvérisé ! ☢️';
+          ? 'Le Roi blanc atteint la colline ! 🏔️' 
+          : 'Le Roi noir atteint la colline ! 🏔️';
+      } else {
+        // Variante Atomic ou Standard - message générique
+        winMessage = game.gameOver === 'white' 
+          ? 'Victoire des Blancs !' 
+          : 'Victoire des Noirs !';
       }
     }
     
