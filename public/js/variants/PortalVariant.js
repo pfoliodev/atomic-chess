@@ -78,97 +78,68 @@ export class PortalVariant extends BaseVariant {
     const rowDiff = Math.abs(normR - fR);
     const colDiff = Math.abs(normC - fC);
     
-    // Logique spéciale pour les portails
+    // Pour Portal Chess, TOUTES les pièces peuvent utiliser les portails
+    // On simplifie la logique en autorisant les mouvements qui suivent les règles de base
+    // mais en tenant compte des portails
+    
+    // Pour les pièces à mouvement continu (fou, tour, reine)
+    if (type === 'b' || type === 'r' || type === 'q') {
+      // Vérifie si c'est un mouvement dans la bonne direction
+      const isValidDirection = 
+        (type === 'b' && (rowDiff === colDiff || rowDiff === 0 || colDiff === 0)) || // Fou peut aller en diagonal + portail
+        (type === 'r' && (fR === normR || fC === normC)) || // Tour doit rester en ligne
+        (type === 'q' && (fR === normR || fC === normC || rowDiff === colDiff)); // Reine = tour + fou
+      
+      if (!isValidDirection) return false;
+      
+      // Vérifie si le chemin est clair
+      if (type === 'b' || (type === 'q' && rowDiff === colDiff)) {
+        return this.isDiagonalPathClearWithPortals(board, from, [normR, normC]);
+      }
+      if (type === 'r' || (type === 'q' && (fR === normR || fC === normC))) {
+        return this.isStraightPathClearWithPortals(board, from, [normR, normC]);
+      }
+    }
+    
+    // Pour les pièces à mouvement discret
     if (type === 'n') {
-      // Les cavaliers utilisent les règles normales
-      const directMove = (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
-      return directMove;
+      // Cavaliers peuvent utiliser les portails pour des sauts plus longs
+      const baseMove = (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
+      const portalMove = (rowDiff === 6 && colDiff === 1) || (rowDiff === 1 && colDiff === 6) ||
+                        (rowDiff === 7 && colDiff === 2) || (rowDiff === 2 && colDiff === 7);
+      return baseMove || portalMove;
+    }
+    
+    if (type === 'k') {
+      // Rois peuvent faire un mouvement de portail
+      const baseMove = (rowDiff <= 1 && colDiff <= 1);
+      const portalMove = (rowDiff === 7 && colDiff === 0) || (rowDiff === 0 && colDiff === 7) ||
+                        (rowDiff === 7 && colDiff === 7) || (rowDiff === 7 && colDiff === 1) ||
+                        (rowDiff === 1 && colDiff === 7);
+      return baseMove || portalMove;
     }
     
     if (type === 'p') {
       const dir = Board.isWhitePiece(piece) ? -1 : 1;
-      const pawnRow = Board.isWhitePiece(piece) ? fR : fR;
       
-      // Mouvement normal
+      // Mouvement vers l'avant (avec portail possible)
       if (fC === normC && !target) {
         if (normR === fR + dir) return true;
-        if (pawnRow === (Board.isWhitePiece(piece) ? 6 : 1) && normR === fR + 2 * dir && !board[fR + dir][fC]) return true;
+        // Premier mouvement de 2 cases
+        const startRow = Board.isWhitePiece(piece) ? 6 : 1;
+        if (fR === startRow && normR === fR + 2 * dir) {
+          // Vérifie si les cases intermédiaires sont libres
+          const midR = this.normalizePosition(fR + dir, fC)[0];
+          if (!board[midR][fC]) return true;
+        }
       }
       
-      // Capture avec portail possible
+      // Capture en diagonale (avec portail)
       if (colDiff === 1 && normR === fR + dir && (target || this.canCaptureEnPassant(board, from, [normR, normC]))) {
         return true;
       }
       
       return false;
-    }
-    
-    if (type === 'b') {
-      // Les fous peuvent traverser les portails en diagonale
-      
-      // Vérifie d'abord si c'est une diagonale normale
-      if (rowDiff === colDiff) {
-        return this.isDiagonalPathClearWithPortals(board, from, [normR, normC]);
-      }
-      
-      // Pour les fous, permet tous les mouvements diagonaux qui peuvent être atteints
-      // en utilisant les portails. On utilise une approche plus permissive.
-      const [fR, fC] = from;
-      const [tR, tC] = to;
-      
-      // Calcule la direction diagonale depuis la position de départ
-      const rowDir = tR > fR ? 1 : -1;
-      const colDir = tC > fC ? 1 : -1;
-      
-      // Simule le mouvement en suivant la direction diagonale avec portails
-      let currentR = fR + rowDir;
-      let currentC = fC + colDir;
-      let steps = 0;
-      const maxSteps = 15; // Protection contre boucles infinies
-      
-      while (steps < maxSteps) {
-        const [normR, normC] = this.normalizePosition(currentR, currentC);
-        
-        // Si on atteint la destination
-        if (normR === tR && normC === tC) {
-          return this.isDiagonalPathClearWithPortals(board, from, [normR, normC]);
-        }
-        
-        // Si on rencontre une pièce avant la destination
-        if (board[normR][normC] !== null) {
-          break;
-        }
-        
-        currentR += rowDir;
-        currentC += colDir;
-        steps++;
-      }
-      
-      return false;
-    }
-    
-    if (type === 'r') {
-      // Les tours peuvent traverser les portails en ligne droite
-      if (fR === normR || fC === normC) {
-        return this.isStraightPathClearWithPortals(board, from, [normR, normC]);
-      }
-      return false;
-    }
-    
-    if (type === 'q') {
-      // Les reines combinent tour et fou avec portails
-      if (fR === normR || fC === normC) {
-        return this.isStraightPathClearWithPortals(board, from, [normR, normC]);
-      }
-      if (rowDiff === colDiff) {
-        return this.isDiagonalPathClearWithPortals(board, from, [normR, normC]);
-      }
-      return false;
-    }
-    
-    if (type === 'k') {
-      // Les rois utilisent les règles normales
-      return (rowDiff <= 1 && colDiff <= 1);
     }
     
     return false;
@@ -285,13 +256,20 @@ export class PortalVariant extends BaseVariant {
     
     if (!piece || Board.getPieceColor(piece) !== currentPlayer) return [];
     
-    // Pour les portails, on doit vérifier toutes les cases de l'échiquier plus les portails
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
+    // Pour Portal Chess, on vérifie TOUTES les cases possibles y compris celles en dehors
+    // car une pièce peut aller n'importe où et utiliser les portails
+    for (let r = -8; r <= 15; r++) {
+      for (let c = -8; c <= 15; c++) {
         // Ignore la position actuelle
         if (r === fromRow && c === fromCol) continue;
         
-        const target = board[r][c];
+        // Normalise la destination pour voir où elle atterrit sur l'échiquier
+        const [normR, normC] = this.normalizePosition(r, c);
+        
+        // Vérifie si la destination normalisée est dans l'échiquier
+        if (normR < 0 || normR >= 8 || normC < 0 || normC >= 8) continue;
+        
+        const target = board[normR][normC];
         
         // Vérifie si la cible n'est pas une pièce alliée
         if (target && Board.getPieceColor(target) === currentPlayer) continue;
@@ -300,36 +278,7 @@ export class PortalVariant extends BaseVariant {
         if (this.checkBasicMove(board, [fromRow, fromCol], [r, c], piece)) {
           // Vérifie si le mouvement est sûr
           if (this.isMoveSafe(board, [fromRow, fromCol], [r, c], piece)) {
-            validMoves.push([r, c]);
-          }
-        }
-      }
-    }
-    
-    // Ajoute les mouvements via portails pour les pièces qui peuvent traverser
-    if (type === 'b' || type === 'r' || type === 'q') {
-      // Pour les Fous, Tours et Reines : vérifie les mouvements qui traversent les portails
-      for (let r = -1; r <= 8; r++) {
-        for (let c = -1; c <= 8; c++) {
-          // Ignore les cases normales déjà vérifiées
-          if (r >= 0 && r < 8 && c >= 0 && c < 8) continue;
-          
-          const [normR, normC] = this.normalizePosition(r, c);
-          
-          // Vérifie si la case destination est valide
-          if (normR >= 0 && normR < 8 && normC >= 0 && normC < 8) {
-            const target = board[normR][normC];
-            
-            // Vérifie si la cible n'est pas une pièce alliée
-            if (target && Board.getPieceColor(target) === currentPlayer) continue;
-            
-            // Vérifie si le mouvement via portail est valide
-            if (this.checkBasicMove(board, [fromRow, fromCol], [r, c], piece)) {
-              // Vérifie si le mouvement est sûr
-              if (this.isMoveSafe(board, [fromRow, fromCol], [r, c], piece)) {
-                validMoves.push([normR, normC]);
-              }
-            }
+            validMoves.push([normR, normC]);
           }
         }
       }
