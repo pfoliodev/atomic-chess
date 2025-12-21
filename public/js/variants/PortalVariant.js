@@ -36,12 +36,10 @@ export class PortalVariant extends BaseVariant {
       return true;
     }
 
-    // Pour mouvement vertical (rook, queen)
+    // Pour mouvement vertical (rook, queen) - pas de portal, chemin normal
     if (fC === tC) {
-      const numSteps = Math.abs(rDiff);
-      // Si mouvement long (>4 cases), considéré comme portal - chemin dégagé
-      if (numSteps > 4) return true;
       const step = Math.sign(rDiff);
+      const numSteps = Math.abs(rDiff);
       for (let i = 1; i < numSteps; i++) {
         const currR = (fR + i * step + 8) % 8;
         if (board[currR][fC]) return false;
@@ -49,13 +47,11 @@ export class PortalVariant extends BaseVariant {
       return true;
     }
 
-    // Pour mouvement diagonal (bishop, queen)
+    // Pour mouvement diagonal (bishop, queen) - pas de portal, chemin normal
     if (Math.abs(rDiff) === Math.abs(cDiff)) {
-      const numSteps = Math.abs(rDiff);
-      // Si mouvement long (>3 cases), considéré comme portal - chemin dégagé
-      if (numSteps > 3) return true;
       const rStep = Math.sign(rDiff);
       const cStep = Math.sign(cDiff);
+      const numSteps = Math.abs(rDiff);
       for (let i = 1; i < numSteps; i++) {
         const currR = (fR + i * rStep + 8) % 8;
         const currC = (fC + i * cStep + 8) % 8;
