@@ -131,12 +131,21 @@ export class Game {
     // Applique le mouvement via la variante
     const result = this.variant.applyMove(this.board, from, to, piece);
     
-    this.board = result.board;
+this.board = result.board;
     this.explosions = result.explosionSquares;
+    this.portalAnimation = result.portalAnimation || null;
     this.moveHistory.push(result.moveNotation);
     this.currentPlayer = this.currentPlayer === 'white' ? 'black' : 'white';
     this.selectedSquare = null;
     this.timer.lastTimerUpdate = Date.now();
+    
+    // Efface l'animation de portail après un court délai
+    if (this.portalAnimation) {
+      setTimeout(() => {
+        this.portalAnimation = null;
+        if (this.onStateChange) this.onStateChange();
+      }, 1000);
+    }
 
 // Vérifie la fin de partie
     const gameOverState = this.variant.checkGameOver(this.board);

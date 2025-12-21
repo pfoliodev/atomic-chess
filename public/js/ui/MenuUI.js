@@ -20,9 +20,10 @@ this.appElement.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-ce
         <h1 class="text-4xl font-bold text-white mb-8">♟️ CHESS VARIANTS</h1>
         <div class="mb-6">
           <p class="text-slate-400 text-sm mb-3">🎮 Variante</p>
-          <div class="grid grid-cols-1 gap-2">
+<div class="grid grid-cols-1 gap-2">
             <button data-variant="atomic" class="variant-btn bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-600 text-sm ring-2 ring-yellow-400">☢️ Atomic Chess</button>
             <button data-variant="kingofthehill" class="variant-btn bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-600 text-sm">🏔️ King of the Hill</button>
+            <button data-variant="portal" class="variant-btn bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-600 text-sm">🌀 Portal Chess</button>
             <button data-variant="standard" class="variant-btn bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-600 text-sm">♟️ Standard Chess</button>
           </div>
         </div>

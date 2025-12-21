@@ -91,8 +91,9 @@ export class Renderer {
         </div>
         
         <div class="flex flex-col lg:flex-row gap-6 items-center lg:items-start">
-          <div id="chess-grid" class="grid grid-cols-[20px_repeat(8,1fr)] bg-slate-800 p-1 border-2 border-slate-700 shadow-2xl rounded-sm">
+<div id="chess-grid" class="grid grid-cols-[20px_repeat(8,1fr)] bg-slate-800 p-1 border-2 border-slate-700 shadow-2xl rounded-sm relative">
             ${boardCells.join('')}
+            ${this.renderPortalEffects(game)}
           </div>
 
           <div class="w-full max-w-[350px] lg:w-72 bg-slate-800 rounded-xl p-4 shadow-xl flex flex-col h-[200px] lg:h-[512px]">
@@ -147,6 +148,63 @@ export class Renderer {
        <p class="text-yellow-500 text-2xl font-bold mb-8 italic">${isTimeout ? 'Temps écoulé !' : winMessage}</p>
        <button onclick="location.reload()" class="bg-blue-600 text-white px-12 py-4 rounded-full font-bold text-xl hover:scale-110 transition shadow-lg">REJOUER</button>
     </div>`;
+  }
+
+/**
+   * Rend les effets de portail pour la variante Portal
+   */
+  renderPortalEffects(game) {
+    if (!game.variant || game.variant.constructor.name !== 'PortalVariant') {
+      return '';
+    }
+
+    let portalHTML = '';
+    
+    // Animation de portail récent si un mouvement vient de traverser un portail
+    if (game.portalAnimation) {
+      const anim = game.portalAnimation;
+      portalHTML += this.renderPortalAnimation(anim);
+    }
+    
+    return portalHTML;
+  }
+
+  /**
+   * Rend une animation de portail spécifique
+   */
+  renderPortalAnimation(animation) {
+    const { type } = animation;
+    
+    let animHTML = '';
+    
+    switch(type) {
+      case 'left':
+        animHTML = `
+          <div class="absolute left-0 top-1/2 transform -translate-y-1/2 text-4xl animate-ping z-50">⬅️</div>
+          <div class="absolute right-0 top-1/2 transform -translate-y-1/2 text-4xl animate-ping z-50">➡️</div>
+        `;
+        break;
+      case 'right':
+        animHTML = `
+          <div class="absolute right-0 top-1/2 transform -translate-y-1/2 text-4xl animate-ping z-50">➡️</div>
+          <div class="absolute left-0 top-1/2 transform -translate-y-1/2 text-4xl animate-ping z-50">⬅️</div>
+        `;
+        break;
+      case 'top':
+        animHTML = `
+          <div class="absolute top-0 left-1/2 transform -translate-x-1/2 text-4xl animate-ping z-50">⬆️</div>
+          <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 text-4xl animate-ping z-50">⬇️</div>
+        `;
+        break;
+      case 'bottom':
+        animHTML = `
+          <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 text-4xl animate-ping z-50">⬇️</div>
+          <div class="absolute top-0 left-1/2 transform -translate-x-1/2 text-4xl animate-ping z-50">⬆️</div>
+        `;
+        break;
+    }
+    
+    return animHTML;
   }
 
   /**

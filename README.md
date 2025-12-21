@@ -6,6 +6,7 @@ Application d'échecs en ligne avec variantes multiples, développée avec une a
 
 - ☢️ **Atomic Chess** : Les captures provoquent des explosions 3×3 (pions immunisés)
 - 🏔️ **King of the Hill** : Amener son roi au centre pour gagner
+- 🌀 **Portal Chess** : Les bords de l'échiquier sont connectés comme dans Pac-Man
 - ♟️ **Standard Chess** : Échecs classiques traditionnels
 - 👥 **Mode Local** : 2 joueurs sur le même appareil
 - 🌐 **Mode Online** : Parties en ligne via Firebase
@@ -64,6 +65,7 @@ atomic-chess/
 │       │   ├── BaseVariant.js
 │       │   ├── AtomicVariant.js
 │       │   ├── KingOfTheHillVariant.js
+│       │   ├── PortalVariant.js
 │       │   └── StandardVariant.js
 │       ├── ui/                 # Interface utilisateur
 │       │   ├── Renderer.js
@@ -138,6 +140,16 @@ Une variante tactique où l'objectif principal change :
 3. 🏃 **Stratégie offensive** : Plus besoin de planquer le roi, il faut courir au centre !
 4. 🛡️ **Double menace** : Protéger son roi tout en attaquant celui de l'adversaire
 
+### 🌀 Portal Chess (Échecs Portail)
+Une variante qui défie la perception spatiale :
+
+1. 🌀 **Portails** : Les bords de l'échiquier sont connectés (Pac-Man style)
+2. ⬅️➡️ **Horizontal** : Sortir par la droite réapparaît à gauche (et inversement)
+3. ⬆️⬇️ **Vertical** : Sortir par le haut réapparaît en bas (et inversement)
+4. 🗡️ **Fous surpuissants** : Leurs diagonales deviennent infinies et peuvent attaquer de dos
+5. 🏃 **Cavaliers étendus** : Peuvent faire des sauts de portail plus longs
+6. 🎯 **Perception déformée** : Les échecs et mats peuvent venir de n'importe quelle direction
+
 ### ♟️ Standard Chess
 Les échecs classiques traditionnels :
 
@@ -156,6 +168,7 @@ L'architecture modulaire permet d'ajouter facilement :
 - 🏰 **Horde** : 36 pions contre armée normale
 - ⚡ **Lightning** : Parties ultra-rapides (1 minute)
 - 🎯 **Antichess** : Perdre toutes ses pièces pour gagner
+- 🌊 **Fog of War** : Ne voir que les cases attaquées par ses pièces
 
 ## 🤝 Contribution
 
@@ -184,7 +197,8 @@ Pour toute question ou suggestion, n'hésitez pas à ouvrir une issue.
 
 ---
 
-**Version** : 2.1.0  
+**Version** : 2.2.0  
 **Date** : Décembre 2025  
 **Status** : ✅ Production Ready  
-**Nouveautés** : 🏔️ Ajout de King of the Hill
+**Nouveautés** : 🌀 Ajout de Portal Chess (bords connectés)  
+**Précédent** : 🏔️ King of the Hill, ☢️ Atomic Chess
