@@ -13,6 +13,7 @@ export class PortalVariant extends BaseVariant {
 
   /**
    * Vérifie si le chemin est libre en considérant le wrapping toroidal
+   * Pour les mouvements longs (>4 cases), le chemin est considéré dégagé (portal)
    */
   isPathClear(board, from, to) {
     const [fR, fC] = from;
@@ -24,8 +25,10 @@ export class PortalVariant extends BaseVariant {
 
     // Pour mouvement horizontal (rook, queen)
     if (fR === tR) {
-      const step = Math.sign(cDiff);
       const numSteps = Math.abs(cDiff);
+      // Si mouvement long (>4 cases), considéré comme portal - chemin dégagé
+      if (numSteps > 4) return true;
+      const step = Math.sign(cDiff);
       for (let i = 1; i < numSteps; i++) {
         const currC = (fC + i * step + 8) % 8;
         if (board[fR][currC]) return false;
@@ -35,8 +38,10 @@ export class PortalVariant extends BaseVariant {
 
     // Pour mouvement vertical (rook, queen)
     if (fC === tC) {
-      const step = Math.sign(rDiff);
       const numSteps = Math.abs(rDiff);
+      // Si mouvement long (>4 cases), considéré comme portal - chemin dégagé
+      if (numSteps > 4) return true;
+      const step = Math.sign(rDiff);
       for (let i = 1; i < numSteps; i++) {
         const currR = (fR + i * step + 8) % 8;
         if (board[currR][fC]) return false;
@@ -46,9 +51,11 @@ export class PortalVariant extends BaseVariant {
 
     // Pour mouvement diagonal (bishop, queen)
     if (Math.abs(rDiff) === Math.abs(cDiff)) {
+      const numSteps = Math.abs(rDiff);
+      // Si mouvement long (>4 cases), considéré comme portal - chemin dégagé
+      if (numSteps > 4) return true;
       const rStep = Math.sign(rDiff);
       const cStep = Math.sign(cDiff);
-      const numSteps = Math.abs(rDiff);
       for (let i = 1; i < numSteps; i++) {
         const currR = (fR + i * rStep + 8) % 8;
         const currC = (fC + i * cStep + 8) % 8;
