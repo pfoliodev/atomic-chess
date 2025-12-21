@@ -91,22 +91,22 @@ export class PortalVariant extends BaseVariant {
 
     // Fou : diagonales avec wrapping
     if (type === 'b') {
-      const rowDiff = Math.min(Math.abs(tR - fR), 8 - Math.abs(tR - fR));
-      const colDiff = Math.min(Math.abs(tC - fC), 8 - Math.abs(tC - fC));
+      const rowDiff = Math.abs(tR - fR);
+      const colDiff = Math.abs(tC - fC);
       return rowDiff === colDiff && rowDiff > 0 && this.isPathClear(board, from, to);
     }
 
     // Tour : lignes droites avec wrapping
     if (type === 'r') {
-      const rowDiff = Math.min(Math.abs(tR - fR), 8 - Math.abs(tR - fR));
-      const colDiff = Math.min(Math.abs(tC - fC), 8 - Math.abs(tC - fC));
+      const rowDiff = Math.abs(tR - fR);
+      const colDiff = Math.abs(tC - fC);
       return ((fR === tR && colDiff > 0) || (fC === tC && rowDiff > 0)) && this.isPathClear(board, from, to);
     }
 
     // Reine : combinaison fou + tour
     if (type === 'q') {
-      const rowDiff = Math.min(Math.abs(tR - fR), 8 - Math.abs(tR - fR));
-      const colDiff = Math.min(Math.abs(tC - fC), 8 - Math.abs(tC - fC));
+      const rowDiff = Math.abs(tR - fR);
+      const colDiff = Math.abs(tC - fC);
       return ((rowDiff === colDiff && rowDiff > 0) || (fR === tR && colDiff > 0) || (fC === tC && rowDiff > 0)) && this.isPathClear(board, from, to);
     }
 
