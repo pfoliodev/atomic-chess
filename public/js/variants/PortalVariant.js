@@ -34,39 +34,28 @@ export class PortalVariant extends BaseVariant {
     const [fR, fC] = from;
     const [tR, tC] = to;
     
-    let crossing = null;
-    
-    // Vérifie le portail horizontal
-    if (fC >= 0 && fC <= 7 && tC >= 0 && tC <= 7) {
-      // Mouvement normal horizontal
-      if (Math.abs(tC - fC) > 4) {
-        crossing = tC > fC ? 'right' : 'left';
-      }
-    } else {
-      // Mouvement avec portail explicite
-      if ((fC >= 0 && fC <= 7 && tC < 0) || (fC < 0 && tC >= 0 && tC <= 7)) {
-        crossing = 'left';
-      } else if ((fC >= 0 && fC <= 7 && tC > 7) || (fC > 7 && tC >= 0 && tC <= 7)) {
-        crossing = 'right';
-      }
+    // Vérifie si la destination est en dehors de l'échiquier (implique un portail)
+    if (tR < 0 || tR > 7 || tC < 0 || tC > 7) {
+      // Détermine la direction du portail
+      if (tC < 0) return 'left';
+      if (tC > 7) return 'right';
+      if (tR < 0) return 'top';
+      if (tR > 7) return 'bottom';
     }
     
-    // Vérifie le portail vertical
-    if (fR >= 0 && fR <= 7 && tR >= 0 && tR <= 7) {
-      // Mouvement normal vertical
-      if (Math.abs(tR - fR) > 4) {
-        crossing = tR > fR ? 'bottom' : 'top';
-      }
-    } else {
-      // Mouvement avec portail explicite
-      if ((fR >= 0 && fR <= 7 && tR < 0) || (fR < 0 && tR >= 0 && tR <= 7)) {
-        crossing = 'top';
-      } else if ((fR >= 0 && fR <= 7 && tR > 7) || (fR > 7 && tR >= 0 && tR <= 7)) {
-        crossing = 'bottom';
-      }
+    // Vérifie les mouvements longs qui pourraient être des portails
+    const colDiff = Math.abs(tC - fC);
+    const rowDiff = Math.abs(tR - fR);
+    
+    // Mouvements très longs sont probablement des portails
+    if (colDiff > 4) {
+      return tC > fC ? 'right' : 'left';
+    }
+    if (rowDiff > 4) {
+      return tR > fR ? 'bottom' : 'top';
     }
     
-    return crossing;
+    return null;
   }
 
   /**
@@ -91,11 +80,9 @@ export class PortalVariant extends BaseVariant {
     
     // Logique spéciale pour les portails
     if (type === 'n') {
-      // Les cavaliers peuvent faire des sauts "portail" plus longs
+      // Les cavaliers utilisent les règles normales
       const directMove = (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
-      const portalMove = (rowDiff === 6 && colDiff === 1) || (rowDiff === 1 && colDiff === 6) ||
-                        (rowDiff === 7 && colDiff === 2) || (rowDiff === 2 && colDiff === 7);
-      return directMove || portalMove;
+      return directMove;
     }
     
     if (type === 'p') {
@@ -145,11 +132,8 @@ export class PortalVariant extends BaseVariant {
     }
     
     if (type === 'k') {
-      // Les rois peuvent faire un mouvement de portail (max 1 case avec portail)
-      const portalMove = (rowDiff === 7 && colDiff === 0) || (rowDiff === 0 && colDiff === 7) ||
-                        (rowDiff === 7 && colDiff === 7) || (rowDiff === 7 && colDiff === 1) ||
-                        (rowDiff === 1 && colDiff === 7);
-      return (rowDiff <= 1 && colDiff <= 1) || portalMove;
+      // Les rois utilisent les règles normales
+      return (rowDiff <= 1 && colDiff <= 1);
     }
     
     return false;
@@ -255,19 +239,44 @@ export class PortalVariant extends BaseVariant {
     
     if (!piece || Board.getPieceColor(piece) !== currentPlayer) return [];
     
-    // Pour les portails, on doit vérifier plus de cases
-    for (let r = -2; r <= 9; r++) {
-      for (let c = -2; c <= 9; c++) {
+    // Pour les portails, on doit vérifier toutes les cases de l'échiquier plus les portails
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
         // Ignore la position actuelle
         if (r === fromRow && c === fromCol) continue;
         
-        const [normR, normC] = this.normalizePosition(r, c);
+        const target = board[r][c];
+        
+        // Vérifie si la cible n'est pas une pièce alliée
+        if (target && Board.getPieceColor(target) === currentPlayer) continue;
+        
+        // Vérifie si le mouvement est valide (avec portails)
+        if (this.checkBasicMove(board, [fromRow, fromCol], [r, c], piece)) {
+          // Vérifie si le mouvement est sûr
+          if (this.isMoveSafe(board, [fromRow, fromCol], [r, c], piece)) {
+            validMoves.push([r, c]);
+          }
+        }
+      }
+    }
+    
+    // Ajoute les mouvements via portails (qui mènent à des cases normales)
+    const portalMoves = [
+      [-1, fromCol], [8, fromCol], // Portails verticaux
+      [fromRow, -1], [fromRow, 8]  // Portails horizontaux
+    ];
+    
+    for (const [r, c] of portalMoves) {
+      const [normR, normC] = this.normalizePosition(r, c);
+      
+      // Vérifie si la case destination est valide
+      if (normR >= 0 && normR < 8 && normC >= 0 && normC < 8) {
         const target = board[normR][normC];
         
         // Vérifie si la cible n'est pas une pièce alliée
         if (target && Board.getPieceColor(target) === currentPlayer) continue;
         
-        // Vérifie si le mouvement est valide
+        // Vérifie si le mouvement via portail est valide
         if (this.checkBasicMove(board, [fromRow, fromCol], [r, c], piece)) {
           // Vérifie si le mouvement est sûr
           if (this.isMoveSafe(board, [fromRow, fromCol], [r, c], piece)) {
