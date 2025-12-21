@@ -4,7 +4,8 @@ import { Board } from '../core/Board.js';
 /**
  * Variante Portal Chess
  * L'échiquier est toroidal : les pièces peuvent traverser les bords
- * Colonne H connectée à colonne A, rangée 8 connectée à rangée 1
+ * Portal actif uniquement sur les mouvements horizontaux traversant les côtés
+ * Pas de portal vertical ni diagonal
  */
 export class PortalVariant extends BaseVariant {
   constructor() {
@@ -13,21 +14,20 @@ export class PortalVariant extends BaseVariant {
 
   /**
    * Vérifie si le chemin est libre en considérant le wrapping toroidal
-   * Pour les mouvements longs (>4 cases), le chemin est considéré dégagé (portal)
+   * Portal horizontal uniquement (côtés)
    */
   isPathClear(board, from, to) {
     const [fR, fC] = from;
     const [tR, tC] = to;
 
-    // Calcul des différences
+    // Distances
     const rDiff = tR - fR;
     const cDiff = tC - fC;
 
-    // Pour mouvement horizontal (rook, queen)
+    // Horizontal portal only
     if (fR === tR) {
       const numSteps = Math.abs(cDiff);
-      // Si mouvement long (>4 cases), considéré comme portal - chemin dégagé
-      if (numSteps > 4) return true;
+      if (numSteps > 4) return true; // portal horizontal actif
       const step = Math.sign(cDiff);
       for (let i = 1; i < numSteps; i++) {
         const currC = (fC + i * step + 8) % 8;
@@ -36,26 +36,28 @@ export class PortalVariant extends BaseVariant {
       return true;
     }
 
-    // Pour mouvement vertical (rook, queen) - pas de portal, chemin normal
+    // Pas de portal vertical
     if (fC === tC) {
-      const step = Math.sign(rDiff);
       const numSteps = Math.abs(rDiff);
+      const step = Math.sign(rDiff);
       for (let i = 1; i < numSteps; i++) {
-        const currR = (fR + i * step + 8) % 8;
+        const currR = fR + i * step;
+        if (currR < 0 || currR > 7) return false;
         if (board[currR][fC]) return false;
       }
       return true;
     }
 
-    // Pour mouvement diagonal (bishop, queen) - pas de portal, chemin normal
+    // Pas de portal diagonal
     if (Math.abs(rDiff) === Math.abs(cDiff)) {
+      const steps = Math.abs(rDiff);
       const rStep = Math.sign(rDiff);
       const cStep = Math.sign(cDiff);
-      const numSteps = Math.abs(rDiff);
-      for (let i = 1; i < numSteps; i++) {
-        const currR = (fR + i * rStep + 8) % 8;
-        const currC = (fC + i * cStep + 8) % 8;
-        if (board[currR][currC]) return false;
+      for (let i = 1; i < steps; i++) {
+        const rr = fR + i * rStep;
+        const cc = fC + i * cStep;
+        if (rr < 0 || rr > 7 || cc < 0 || cc > 7) return false;
+        if (board[rr][cc]) return false;
       }
       return true;
     }
@@ -64,7 +66,7 @@ export class PortalVariant extends BaseVariant {
   }
 
   /**
-   * Surcharge : Vérifie les mouvements de base avec wrapping
+   * Vérifie les mouvements de base sans portal vertical/diagonal
    */
   checkBasicMove(board, from, to, piece, ignoreSafety = false) {
     const [fR, fC] = from;
@@ -72,7 +74,7 @@ export class PortalVariant extends BaseVariant {
     const type = piece.toLowerCase();
     const target = board[tR][tC];
 
-    // Pour les pions, mouvement normal (pas de wrapping vertical pour les pions?)
+    // Pions
     if (type === 'p') {
       const dir = Board.isWhitePiece(piece) ? -1 : 1;
       if (ignoreSafety) return tR === fR + dir && Math.abs(tC - fC) === 1;
@@ -85,46 +87,47 @@ export class PortalVariant extends BaseVariant {
       return false;
     }
 
-    // Cavalier : mouvements en L, sans wrapping pour éviter les attaques à distance
+    // Cavalier: pas de portal diagonal
     if (type === 'n') {
       const rowDiff = Math.abs(tR - fR);
       const colDiff = Math.abs(tC - fC);
       return (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
     }
 
-    // Fou : diagonales avec wrapping
+    // Fou
     if (type === 'b') {
       const rowDiff = Math.abs(tR - fR);
       const colDiff = Math.abs(tC - fC);
+      // diagonal sans portal
       return rowDiff === colDiff && rowDiff > 0 && this.isPathClear(board, from, to);
     }
 
-    // Tour : lignes droites avec wrapping
+    // Tour
     if (type === 'r') {
       const rowDiff = Math.abs(tR - fR);
       const colDiff = Math.abs(tC - fC);
       return ((fR === tR && colDiff > 0) || (fC === tC && rowDiff > 0)) && this.isPathClear(board, from, to);
     }
 
-    // Reine : combinaison fou + tour
+    // Reine
     if (type === 'q') {
       const rowDiff = Math.abs(tR - fR);
       const colDiff = Math.abs(tC - fC);
       return ((rowDiff === colDiff && rowDiff > 0) || (fR === tR && colDiff > 0) || (fC === tC && rowDiff > 0)) && this.isPathClear(board, from, to);
     }
 
-    // Roi : adjacent, sans wrapping pour éviter les problèmes d'échec
+    // Roi
     if (type === 'k') {
       const rowDiff = Math.abs(tR - fR);
       const colDiff = Math.abs(tC - fC);
-      return rowDiff <= 1 && colDiff <= 1 && (rowDiff > 0 || colDiff > 0);
+      return rowDiff <= 1 && colDiff <= 1;
     }
 
     return false;
   }
 
   /**
-   * Surcharge : Obtient tous les coups valides avec wrapping
+   * Obtenir les coups valides (horizontal portal uniquement)
    */
   getValidMoves(board, fromRow, fromCol, currentPlayer) {
     const piece = board[fromRow][fromCol];
@@ -132,7 +135,6 @@ export class PortalVariant extends BaseVariant {
     
     if (!piece || Board.getPieceColor(piece) !== currentPlayer) return [];
     
-    // Pour les pièces non-glissantes, vérifier toutes les cases possibles
     const type = piece.toLowerCase();
     if (type === 'n' || type === 'k') {
       for (let r = 0; r < 8; r++) {
@@ -146,7 +148,6 @@ export class PortalVariant extends BaseVariant {
         }
       }
     } else {
-      // Pour les pièces glissantes, utiliser la logique de base mais avec wrapping
       for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
           if (r === fromRow && c === fromCol) continue;
