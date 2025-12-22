@@ -24,6 +24,7 @@ this.appElement.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-ce
             <button data-variant="atomic" class="variant-btn bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-600 text-sm ring-2 ring-yellow-400">☢️ Atomic Chess</button>
             <button data-variant="kingofthehill" class="variant-btn bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-600 text-sm">🏔️ King of the Hill</button>
             <button data-variant="standard" class="variant-btn bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-600 text-sm">♟️ Standard Chess</button>
+            <button data-variant="battleroyale" class="variant-btn bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-600 text-sm">🌪️ Battle Royale</button>
           </div>
         </div>
         <div class="mb-6">
