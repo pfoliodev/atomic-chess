@@ -1,6 +1,6 @@
 import { Board } from '../core/Board.js';
 import { Timer } from '../core/Timer.js';
-import { BattleRoyaleVariant } from './variants/BattleRoyaleVariant.js';
+import { BattleRoyaleVariant } from '../variants/BattleRoyaleVariant.js';
 
 /**
  * Gère le rendu de l'échiquier et de l'interface de jeu
