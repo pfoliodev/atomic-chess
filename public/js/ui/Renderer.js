@@ -1,7 +1,5 @@
 import { Board } from '../core/Board.js';
 import { Timer } from '../core/Timer.js';
-import { BattleRoyaleVariant } from '../variants/BattleRoyaleVariant.js';
-
 /**
  * Gère le rendu de l'échiquier et de l'interface de jeu
  */
@@ -18,8 +16,7 @@ export class Renderer {
     const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
     const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
     const displayFiles = (game.playerColor === 'black') ? [...files].reverse() : files;
-    const displayRanks = (game.playerColor === 'black') ? [...ranks].reverse() : ranks;
-    const isBR = game.variant instanceof BattleRoyaleVariant || (game.variant.constructor.name === 'BattleRoyaleVariant');
+    const displayRanks = (game.playerColor === 'black') ? [...ranks].reverse() : ranks;    
 
     const boardCells = [];
     const displayBoard = (game.playerColor === 'black') 
