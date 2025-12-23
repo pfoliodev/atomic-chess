@@ -1,6 +1,5 @@
 import { Board } from '../core/Board.js';
 import { Timer } from '../core/Timer.js';
-
 /**
  * Gère le rendu de l'échiquier et de l'interface de jeu
  */
@@ -17,7 +16,7 @@ export class Renderer {
     const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
     const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
     const displayFiles = (game.playerColor === 'black') ? [...files].reverse() : files;
-    const displayRanks = (game.playerColor === 'black') ? [...ranks].reverse() : ranks;
+    const displayRanks = (game.playerColor === 'black') ? [...ranks].reverse() : ranks;    
 
     const boardCells = [];
     const displayBoard = (game.playerColor === 'black') 
@@ -36,11 +35,18 @@ export class Renderer {
         const isPossibleMove = validMoves.some(m => m[0] === actualR && m[1] === actualC);
         const hasPiece = piece !== null;
         
+        // 🔥 MODIF BATTLE ROYALE : On détecte si la case est effondrée
+        const isDeadZone = game.variant.isSquareCollapsed && game.variant.isSquareCollapsed(actualR, actualC);
+        
         boardCells.push(`<div onclick="window.handleSquareClick(${actualR}, ${actualC})" 
                class="relative w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center text-3xl sm:text-5xl cursor-pointer
-               ${isLight ? 'bg-[#eeeed2]' : 'bg-[#769656]'} ${isSel ? 'bg-[#f6f669]' : ''} 
+               ${isDeadZone ? 'bg-slate-900 border border-slate-800 opacity-80' : (isLight ? 'bg-[#eeeed2]' : 'bg-[#769656]')} 
+               ${isSel ? 'bg-[#f6f669]' : ''} 
                ${isExplo ? 'bg-red-500 animate-pulse' : ''}">
-               ${isPossibleMove ? (hasPiece ? `<div class="capture-ring absolute"></div>` : `<div class="move-dot"></div>`) : ''}
+               
+               ${/* On cache les indicateurs de mouvement dans la zone morte */ ''}
+               ${!isDeadZone && isPossibleMove ? (hasPiece ? `<div class="capture-ring absolute"></div>` : `<div class="move-dot"></div>`) : ''}
+               
                <span class="chess-piece relative z-10" 
                      style="color: ${Board.isWhitePiece(piece) ? '#FFF' : '#000'}; 
                      text-shadow: ${Board.isWhitePiece(piece) ? '0 0 2px #000, 0 0 5px rgba(0,0,0,0.5)' : 'none'};">
