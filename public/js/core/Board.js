@@ -104,7 +104,7 @@ export class Board {
   /**
    * Génère une chaîne FEN pour le plateau actuel
    */
-  static toFEN(board, turn, variant) {
+  static toFEN(board, turn, variant, fullMove = 1) {
     let fen = '';
 
     // 1. Position des pièces
@@ -133,8 +133,9 @@ export class Board {
     const flags = variant.getFENFlags();
     fen += ` ${flags.castling} ${flags.enPassant}`;
 
-    // 4. Halfmove et Fullmove (simplifié)
-    fen += ' 0 1';
+    // 4. Halfmove et Fullmove
+    // Halfmove (50 moves rule) on simplifie à 0 pour l'instant
+    fen += ` 0 ${fullMove}`;
 
     return fen;
   }

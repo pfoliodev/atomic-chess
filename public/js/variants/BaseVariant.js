@@ -170,6 +170,13 @@ export class BaseVariant {
     const [fR, fC] = from;
     const [tR, tC] = to;
     const newBoard = Board.clone(board);
+
+    // Protection contre les mouvements nuls
+    if (!piece) {
+      console.error("Tentative de déplacement d'une pièce nulle:", from, to);
+      return { board: newBoard, explosionSquares: [], moveNotation: '??', gameOver: null };
+    }
+
     const isCastling = piece.toLowerCase() === 'k' && Math.abs(tC - fC) === 2;
     const isCapture = board[tR][tC] !== null;
     const isEP = this.canCaptureEnPassant(board, from, to);
@@ -262,13 +269,47 @@ export class BaseVariant {
    * Vérifie si la partie est terminée
    * @returns {string|null} 'white', 'black', 'draw' ou null
    */
-  checkGameOver(board) {
+  /**
+   * Vérifie si la partie est terminée
+   * @returns {string|null} 'white', 'black', 'draw' ou null
+   */
+  checkGameOver(board, currentPlayer) {
     const wK = Board.findKing(board, 'white');
     const bK = Board.findKing(board, 'black');
 
     if (!wK && !bK) return 'draw';
     if (!wK) return 'black';
     if (!bK) return 'white';
+
+    // Vérification Pat / Mat
+    // Si le joueur courant n'a aucun coup possible
+    if (currentPlayer) {
+      let hasValidMove = false;
+
+      // On parcourt tout le plateau pour trouver une pièce du joueur
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const piece = board[r][c];
+          if (piece && Board.getPieceColor(piece) === currentPlayer) {
+            // On cherche s'il a au moins un coup valide
+            const moves = this.getValidMoves(board, r, c, currentPlayer);
+            if (moves.length > 0) {
+              hasValidMove = true;
+              break;
+            }
+          }
+        }
+        if (hasValidMove) break;
+      }
+
+      if (!hasValidMove) {
+        // Si pas de mouvement : Pat (pour l'instant on simplifie Pat = Draw même si Mat possible)
+        // TODO: Vérifier si le roi est en échec pour distinguer Mat et Pat
+        // Mais dans Atomic/Battle Royale souvent l'explosion du roi gère le mat.
+        // Le Pat survient quand on est bloqué.
+        return 'draw';
+      }
+    }
 
     return null;
   }

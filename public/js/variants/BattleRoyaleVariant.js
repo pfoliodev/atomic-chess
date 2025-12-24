@@ -34,11 +34,11 @@ export class BattleRoyaleVariant extends BaseVariant {
   applyMove(board, from, to, piece) {
     // 1. Appliquer le mouvement normal
     const result = super.applyMove(board, from, to, piece);
-    
+
     // 2. Incrémenter le compteur
     this.turnCount++;
     const turnsRemaining = this.turnsPerShrink - (this.turnCount % this.turnsPerShrink);
-    
+
     // Notation : on ajoute un petit compte à rebours visuel dans l'historique
     if (turnsRemaining <= 3 && turnsRemaining > 0) {
       result.moveNotation += ` ⏳${turnsRemaining}`;
@@ -49,7 +49,7 @@ export class BattleRoyaleVariant extends BaseVariant {
       this.shrinkBoard(result.board);
       this.collapsedRings++;
       result.moveNotation += " 🌪️"; // Indique que la tempête a frappé
-      
+
       // On vérifie immédiatement si un roi est mort
       const winner = this.checkGameOver(result.board);
       if (winner) {
@@ -65,7 +65,7 @@ export class BattleRoyaleVariant extends BaseVariant {
    */
   shrinkBoard(board) {
     // L'anneau actuel qui va être détruit
-    const ring = this.collapsedRings; 
+    const ring = this.collapsedRings;
     const limit = 7 - ring;
 
     for (let r = 0; r < 8; r++) {
@@ -74,7 +74,7 @@ export class BattleRoyaleVariant extends BaseVariant {
         if (r === ring || r === limit || c === ring || c === limit) {
           // On ne touche pas aux cases déjà mortes (optimisation)
           if (r >= ring && r <= limit && c >= ring && c <= limit) {
-             board[r][c] = null; // Adieu petite pièce 👋
+            board[r][c] = null; // Adieu petite pièce 👋
           }
         }
       }
@@ -84,18 +84,18 @@ export class BattleRoyaleVariant extends BaseVariant {
   /**
    * Surcharge : Le jeu s'arrête si un roi disparaît dans la tempête
    */
-  checkGameOver(board) {
+  checkGameOver(board, currentPlayer) {
     const wK = Board.findKing(board, 'white');
     const bK = Board.findKing(board, 'black');
-    
+
     // Si les deux meurent en même temps (très rare mais possible), match nul
     if (!wK && !bK) return 'draw';
     if (!wK) return 'black'; // Le roi blanc a fondu
     if (!bK) return 'white'; // Le roi noir a fondu
-    
-    return super.checkGameOver(board);
+
+    return super.checkGameOver(board, currentPlayer);
   }
-  
+
   /**
    * Pour la synchro : on doit sauvegarder l'état de la tempête
    */

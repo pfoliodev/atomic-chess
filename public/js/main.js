@@ -207,7 +207,19 @@ class App {
       if (this.currentMode === 'online' && this.firebaseSync) {
         await this.firebaseSync.updateGame(state);
       } else if (this.currentMode === 'ai' && this.game.currentPlayer === 'black') {
-        const fen = Board.toFEN(this.game.board, this.game.currentPlayer, this.game.variant);
+        // Calcul du numéro du coup (commence à 1)
+        // moveHistory contient tous les coups (blancs et noirs).
+        // 0 coups -> fullMove 1
+        // 1 coup (blanc) -> fullMove 1
+        // 2 coups (blanc, noir) -> fullMove 2
+        const fullMove = Math.floor(this.game.moveHistory.length / 2) + 1;
+
+        // Passer info Battle Royale
+        if (this.game.variant.collapsedRings !== undefined) {
+          this.engine.collapsedRings = this.game.variant.collapsedRings;
+        }
+
+        const fen = Board.toFEN(this.game.board, this.game.currentPlayer, this.game.variant, fullMove);
         this.engine.getBestMove(fen);
       }
     };

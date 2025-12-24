@@ -132,6 +132,11 @@ export class Game {
     const [fR, fC] = from;
     const piece = this.board[fR][fC];
 
+    if (!piece) {
+      console.error(`Erreur: Pas de pièce à la case ${from}`);
+      return;
+    }
+
     // Applique le mouvement via la variante
     const result = this.variant.applyMove(this.board, from, to, piece);
 
@@ -143,7 +148,7 @@ export class Game {
     this.timer.lastTimerUpdate = Date.now();
 
     // Vérifie la fin de partie
-    const gameOverState = this.variant.checkGameOver(this.board);
+    const gameOverState = this.variant.checkGameOver(this.board, this.currentPlayer);
     if (gameOverState) {
       this.gameOver = gameOverState;
       this.timer.stop();
