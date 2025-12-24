@@ -1,9 +1,12 @@
 {
   "name": "atomic-chess",
   "version": "1.0.0",
+  "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node public/js/test/RunTests.js",
+    "test:manual": "node public/js/test/RunTests.js",
+    "test:auto": "node public/js/test/RunAutomaticTests.js",
     "build": "echo 'No build step needed'",
     "serve": "npx serve . -p 8000",
     "dev": "npx serve . -p 8000"
