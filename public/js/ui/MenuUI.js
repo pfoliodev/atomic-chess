@@ -7,15 +7,17 @@ export class MenuUI {
     this.selectedTimeControl = 600;
     this.selectedVariant = 'atomic';
     this.onStartLocal = null;
+    this.onStartAI = null;
     this.onCreateOnline = null;
     this.onJoinOnline = null;
+    this.selectedLevel = 1;
   }
 
   /**
    * Rend le menu principal
    */
   render() {
-this.appElement.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+    this.appElement.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
         <h1 class="text-4xl font-bold text-white mb-8">♟️ CHESS VARIANTS</h1>
         <div class="mb-6">
@@ -36,6 +38,13 @@ this.appElement.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-ce
             <button data-time="900" class="time-btn bg-slate-700 text-white py-2 rounded-lg hover:bg-slate-600 text-sm">15min</button>
           </div>
         </div>
+        <div class="mb-6">
+          <p class="text-slate-400 text-sm mb-3">🤖 Niveau de l'IA</p>
+          <div class="grid grid-cols-8 gap-1">
+            ${[1, 2, 3, 4, 5, 6, 7, 8].map(l => `<button data-level="${l}" class="level-btn bg-slate-700 text-white py-1 rounded-md hover:bg-slate-600 text-xs ${l === 1 ? 'ring-2 ring-yellow-400' : ''}">${l}</button>`).join('')}
+          </div>
+        </div>
+        <button id="btn-ai" class="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-emerald-700 transition transform hover:scale-105">SOLO VS IA</button>
         <button id="btn-local" class="w-full bg-purple-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-purple-700 transition transform hover:scale-105">LOCAL</button>
         <button id="btn-create" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold mb-4 hover:bg-blue-700 transition transform hover:scale-105">CRÉER EN LIGNE</button>
         <input type="text" id="inputCode" placeholder="Code à 6 chiffres" class="w-full p-4 rounded-xl mb-4 text-center font-bold text-slate-900">
@@ -49,7 +58,7 @@ this.appElement.innerHTML = `<div class="min-h-screen bg-slate-900 flex items-ce
   /**
    * Attache les gestionnaires d'événements
    */
-attachEventListeners() {
+  attachEventListeners() {
     // Boutons de variante
     document.querySelectorAll('.variant-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -68,7 +77,26 @@ attachEventListeners() {
       });
     });
 
-// Bouton Local
+    // Bouton AI
+    const btnAI = document.getElementById('btn-ai');
+    if (btnAI) {
+      btnAI.addEventListener('click', () => {
+        if (this.onStartAI) {
+          this.onStartAI(this.selectedTimeControl, this.selectedVariant, this.selectedLevel);
+        }
+      });
+    }
+
+    // Boutons de niveau
+    document.querySelectorAll('.level-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        this.selectedLevel = parseInt(e.target.dataset.level);
+        document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('ring-2', 'ring-yellow-400'));
+        e.target.classList.add('ring-2', 'ring-yellow-400');
+      });
+    });
+
+    // Bouton Local
     const btnLocal = document.getElementById('btn-local');
     if (btnLocal) {
       btnLocal.addEventListener('click', () => {
@@ -78,7 +106,7 @@ attachEventListeners() {
       });
     }
 
-// Bouton Créer en ligne
+    // Bouton Créer en ligne
     const btnCreate = document.getElementById('btn-create');
     if (btnCreate) {
       btnCreate.addEventListener('click', () => {

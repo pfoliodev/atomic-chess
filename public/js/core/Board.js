@@ -29,6 +29,15 @@ export class Board {
   }
 
   /**
+   * Convertit une notation algébrique en coordonnées [row, col]
+   */
+  static fromAlgebraic(square) {
+    const col = square.charCodeAt(0) - 'a'.charCodeAt(0);
+    const row = 8 - parseInt(square[1]);
+    return [row, col];
+  }
+
+  /**
    * Trouve la position du roi d'une couleur donnée
    */
   static findKing(board, color) {
@@ -51,7 +60,7 @@ export class Board {
     const cStep = Math.sign(tC - fC);
     let currR = fR + rStep;
     let currC = fC + cStep;
-    
+
     while (currR !== tR || currC !== tC) {
       if (board[currR][currC]) return false;
       currR += rStep;
@@ -90,5 +99,43 @@ export class Board {
       board.push(flatBoard.slice(i * 8, (i + 1) * 8));
     }
     return board;
+  }
+
+  /**
+   * Génère une chaîne FEN pour le plateau actuel
+   */
+  static toFEN(board, turn, variant) {
+    let fen = '';
+
+    // 1. Position des pièces
+    for (let r = 0; r < 8; r++) {
+      let empty = 0;
+      for (let c = 0; c < 8; c++) {
+        const piece = board[r][c];
+        if (piece) {
+          if (empty > 0) {
+            fen += empty;
+            empty = 0;
+          }
+          fen += piece;
+        } else {
+          empty++;
+        }
+      }
+      if (empty > 0) fen += empty;
+      if (r < 7) fen += '/';
+    }
+
+    // 2. Trait
+    fen += ` ${turn[0]}`;
+
+    // 3. Flags (Roque et EP)
+    const flags = variant.getFENFlags();
+    fen += ` ${flags.castling} ${flags.enPassant}`;
+
+    // 4. Halfmove et Fullmove (simplifié)
+    fen += ' 0 1';
+
+    return fen;
   }
 }

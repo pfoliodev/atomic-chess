@@ -7,6 +7,7 @@ import { Board } from './core/Board.js';
 import { Renderer } from './ui/Renderer.js';
 import { MenuUI } from './ui/MenuUI.js';
 import { FirebaseSync } from './network/FirebaseSync.js';
+import { StockfishEngine } from './engine/StockfishEngine.js';
 
 /**
  * Application principale
@@ -17,9 +18,10 @@ class App {
     this.renderer = new Renderer('app');
     this.menuUI = new MenuUI('app');
     this.firebaseSync = null;
+    this.engine = new StockfishEngine();
     this.currentMode = 'menu';
     this.gameCode = null;
-    
+
     this.init();
   }
 
@@ -29,7 +31,7 @@ class App {
   async init() {
     // Initialise Firebase
     await this.initFirebase();
-    
+
     // Affiche le menu
     this.showMenu();
   }
@@ -69,16 +71,17 @@ class App {
   showMenu() {
     this.currentMode = 'menu';
     this.menuUI.render();
-    
-// Configure les callbacks du menu
+
+    // Configure les callbacks du menu
     this.menuUI.onStartLocal = (timeControl, variant) => this.startLocalGame(timeControl, variant);
+    this.menuUI.onStartAI = (timeControl, variant, level) => this.startAIGame(timeControl, variant, level);
     this.menuUI.onCreateOnline = (timeControl, variant) => this.createOnlineGame(timeControl, variant);
     this.menuUI.onJoinOnline = (code) => this.joinOnlineGame(code);
   }
 
-/**
-   * Crée une variante selon le choix
-   */
+  /**
+     * Crée une variante selon le choix
+     */
   createVariant(variantName) {
     switch (variantName) {
       case 'kingofthehill':
@@ -101,30 +104,59 @@ class App {
     this.game = new Game(variant, 'local', timeControl);
     this.currentMode = 'local';
     this.gameCode = null;
-    
+
     this.setupGameCallbacks();
     this.game.startTimer();
     this.renderer.renderGame(this.game);
   }
 
-/**
-   * Crée une partie en ligne
+  /**
+   * Démarre une partie contre l'IA
    */
+  async startAIGame(timeControl, variantName, level) {
+    const variant = this.createVariant(variantName);
+    this.game = new Game(variant, 'ai', timeControl);
+    this.game.playerColor = 'white'; // Le joueur est toujours blanc contre l'IA pour le moment
+    this.currentMode = 'ai';
+
+    // Initialise le moteur
+    this.engine.setVariant(variantName);
+    this.engine.setDifficulty(level);
+    await this.engine.init();
+
+    this.engine.onMoveFound = (uciMove) => {
+      const from = Board.fromAlgebraic(uciMove.substring(0, 2));
+      const to = Board.fromAlgebraic(uciMove.substring(2, 4));
+
+      // Temporisation pour simuler la réflexion et laisser le temps de voir le coup
+      setTimeout(() => {
+        this.game.executeMove(from, to);
+      }, 500);
+    };
+
+    this.setupGameCallbacks();
+    this.game.startTimer();
+    this.renderer.renderGame(this.game);
+  }
+
+  /**
+     * Crée une partie en ligne
+     */
   async createOnlineGame(timeControl, variantName) {
     try {
       const variant = this.createVariant(variantName);
       this.game = new Game(variant, 'online', timeControl);
-      
+
       const initialState = {
         board: Board.flatten(this.game.board),
         variantState: variant.getState()
       };
-      
+
       const result = await this.firebaseSync.createGame(initialState, timeControl);
       this.gameCode = result.code;
       this.game.playerColor = result.playerColor;
       this.currentMode = 'online';
-      
+
       this.setupGameCallbacks();
       this.setupOnlineSync();
       this.game.startTimer();
@@ -135,22 +167,22 @@ class App {
     }
   }
 
-/**
-   * Rejoint une partie en ligne
-   */
+  /**
+     * Rejoint une partie en ligne
+     */
   async joinOnlineGame(code) {
     try {
       // Pour le moment, on suppose que c'est toujours Atomic
       // TODO: Récupérer le type de variante depuis Firebase
       const variant = new AtomicVariant();
       this.game = new Game(variant, 'online', 600);
-      
+
       const result = await this.firebaseSync.joinGame(code);
       this.gameCode = result.code;
       this.game.playerColor = result.playerColor;
       this.game.syncState(result.state);
       this.currentMode = 'online';
-      
+
       this.setupGameCallbacks();
       this.setupOnlineSync();
       this.game.startTimer();
@@ -169,14 +201,17 @@ class App {
     this.game.onStateChange = () => {
       this.renderer.renderGame(this.game, this.gameCode);
     };
-    
+
     // Callback après un mouvement
     this.game.onMove = async (state) => {
       if (this.currentMode === 'online' && this.firebaseSync) {
         await this.firebaseSync.updateGame(state);
+      } else if (this.currentMode === 'ai' && this.game.currentPlayer === 'black') {
+        const fen = Board.toFEN(this.game.board, this.game.currentPlayer, this.game.variant);
+        this.engine.getBestMove(fen);
       }
     };
-    
+
     // Callback fin de partie
     this.game.onGameOver = async (winner, reason) => {
       if (this.currentMode === 'online' && this.firebaseSync) {
@@ -188,7 +223,7 @@ class App {
       }
       this.renderer.renderGame(this.game, this.gameCode);
     };
-    
+
     // Callback mise à jour timer
     this.game.onTimerUpdate = async (whiteTime, blackTime) => {
       // Mettre à jour Firebase périodiquement (toutes les 2 secondes)
@@ -208,15 +243,15 @@ class App {
   setupOnlineSync() {
     this.firebaseSync.startSync((state) => {
       // Détermine si l'adversaire est connecté
-      const opponentConnected = this.game.playerColor === 'white' 
-        ? !!state.playerBlack 
+      const opponentConnected = this.game.playerColor === 'white'
+        ? !!state.playerBlack
         : !!state.playerWhite;
-      
+
       this.game.setOpponentConnected(opponentConnected);
-      
+
       // Synchronise l'état du jeu
       this.game.syncState(state);
-      
+
       this.renderer.renderGame(this.game, this.gameCode);
     });
   }
@@ -226,9 +261,9 @@ class App {
    */
   handleSquareClick(row, col) {
     if (!this.game) return;
-    
+
     const result = this.game.handleSquareClick(row, col);
-    
+
     if (result === 'invalid') {
       this.renderer.shakeBoard();
     }

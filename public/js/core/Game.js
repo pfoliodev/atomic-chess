@@ -16,7 +16,7 @@ export class Game {
     this.moveHistory = [];
     this.playerColor = null; // Pour le mode online
     this.opponentConnected = false;
-    
+
     // Timer
     this.timer = new Timer(timeControl, timeControl);
     this.timer.onTick = (whiteTime, blackTime) => {
@@ -30,7 +30,7 @@ export class Game {
         this.onGameOver(winner, 'timeout');
       }
     };
-    
+
     // Callbacks
     this.onMove = null;
     this.onGameOver = null;
@@ -43,21 +43,22 @@ export class Game {
    */
   startTimer() {
     this.timer.start();
-    
+
     // Logique pour mettre en pause le timer selon les conditions
     const updateTimerState = () => {
       const isGameStarted = this.moveHistory.length > 0;
-      const canRun = !this.gameOver && 
-                     (this.mode === 'local' || 
-                      (this.mode === 'online' && this.opponentConnected && isGameStarted));
-      
+      const canRun = !this.gameOver &&
+        (this.mode === 'local' ||
+          this.mode === 'ai' ||
+          (this.mode === 'online' && this.opponentConnected && isGameStarted));
+
       if (canRun && !this.timer.isRunning) {
         this.timer.resume();
       } else if (!canRun && this.timer.isRunning) {
         this.timer.pause();
       }
     };
-    
+
     // Mettre à jour l'état du timer périodiquement
     this.timerUpdateInterval = setInterval(() => {
       updateTimerState();
@@ -73,7 +74,7 @@ export class Game {
         return null;
       };
     }, 100);
-    
+
     updateTimerState();
   }
 
@@ -83,6 +84,9 @@ export class Game {
   handleSquareClick(row, col) {
     if (this.gameOver) return false;
     if (this.mode === 'online' && (this.currentPlayer !== this.playerColor || !this.opponentConnected)) {
+      return false;
+    }
+    if (this.mode === 'ai' && this.currentPlayer !== this.playerColor) {
       return false;
     }
 
@@ -130,7 +134,7 @@ export class Game {
 
     // Applique le mouvement via la variante
     const result = this.variant.applyMove(this.board, from, to, piece);
-    
+
     this.board = result.board;
     this.explosions = result.explosionSquares;
     this.moveHistory.push(result.moveNotation);
@@ -138,7 +142,7 @@ export class Game {
     this.selectedSquare = null;
     this.timer.lastTimerUpdate = Date.now();
 
-// Vérifie la fin de partie
+    // Vérifie la fin de partie
     const gameOverState = this.variant.checkGameOver(this.board);
     if (gameOverState) {
       this.gameOver = gameOverState;
@@ -177,7 +181,7 @@ export class Game {
     }
 
     if (this.onStateChange) this.onStateChange();
-    
+
     return true;
   }
 
@@ -187,9 +191,9 @@ export class Game {
   getValidMovesForSelected() {
     if (!this.selectedSquare) return [];
     return this.variant.getValidMoves(
-      this.board, 
-      this.selectedSquare[0], 
-      this.selectedSquare[1], 
+      this.board,
+      this.selectedSquare[0],
+      this.selectedSquare[1],
       this.currentPlayer
     );
   }
@@ -206,7 +210,7 @@ export class Game {
       rookMoved: state.rookMoved,
       lastMove: state.lastMove
     });
-    
+
     if (state.whiteTime !== undefined) this.timer.whiteTime = state.whiteTime;
     if (state.blackTime !== undefined) this.timer.blackTime = state.blackTime;
     if (state.lastTimerUpdate) this.timer.lastTimerUpdate = state.lastTimerUpdate;
@@ -214,7 +218,7 @@ export class Game {
       this.gameOver = state.gameOver;
       this.timer.stop();
     }
-    
+
     if (this.onStateChange) this.onStateChange();
   }
 
