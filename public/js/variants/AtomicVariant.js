@@ -45,6 +45,106 @@ export class AtomicVariant extends BaseVariant {
   }
 
   /**
+   * Vérifie si un mouvement est légal dans les règles atomiques
+   * Le roi ne peut pas capturer car il serait détruit par l'explosion
+   */
+  isMoveSafe(board, from, to, piece) {
+    const [fR, fC] = from;
+    const [tR, tC] = to;
+    const isCapture = board[tR][tC] !== null;
+    const isEP = this.canCaptureEnPassant(board, from, to);
+    
+    // Dans Atomic, le roi ne peut pas capturer (il serait détruit par l'explosion)
+    if (piece.toLowerCase() === 'k' && (isCapture || isEP)) {
+      return false;
+    }
+    
+    // Utilise la simulation atomique pour vérifier la sécurité
+    const futureBoard = this.getSimulatedBoard(board, from, to, piece);
+    
+    // Vérifie si le roi adverse existe encore (ex: variantes atomic)
+    const opponentColor = Board.getPieceColor(piece) === 'white' ? 'black' : 'white';
+    if (!Board.findKing(futureBoard, opponentColor)) return true;
+    
+    const myKingPos = Board.findKing(futureBoard, Board.getPieceColor(piece));
+    if (!myKingPos) return false;
+    
+    return !this.isSquareAttacked(futureBoard, myKingPos[0], myKingPos[1], Board.getPieceColor(piece));
+  }
+
+  /**
+   * Surcharge : Vérifie si la partie est terminée avec les règles atomiques
+   */
+  checkGameOver(board) {
+    const wK = Board.findKing(board, 'white');
+    const bK = Board.findKing(board, 'black');
+    
+    if (!wK && !bK) return 'draw';
+    if (!wK) return 'black';
+    if (!bK) return 'white';
+    
+    // Vérifie s'il y a échec et mat
+    return this.checkAtomicCheckmate(board);
+  }
+
+  /**
+   * Vérifie l'échec et mat dans les règles atomiques
+   */
+  checkAtomicCheckmate(board) {
+    // Vérifie si le roi blanc est en échec
+    if (this.isKingInCheck(board, 'white')) {
+      if (!this.hasAnyLegalMove(board, 'white')) {
+        return 'black';
+      }
+    }
+    
+    // Vérifie si le roi noir est en échec
+    if (this.isKingInCheck(board, 'black')) {
+      if (!this.hasAnyLegalMove(board, 'black')) {
+        return 'white';
+      }
+    }
+    
+    // Vérifie le pat (pas d'échec mais aucun coup légal)
+    if (!this.isKingInCheck(board, 'white') && !this.hasAnyLegalMove(board, 'white')) {
+      return 'draw';
+    }
+    if (!this.isKingInCheck(board, 'black') && !this.hasAnyLegalMove(board, 'black')) {
+      return 'draw';
+    }
+    
+    return null;
+  }
+
+  /**
+   * Vérifie si un roi est en échec
+   */
+  isKingInCheck(board, color) {
+    const kingPos = Board.findKing(board, color);
+    if (!kingPos) return false;
+    
+    return this.isSquareAttacked(board, kingPos[0], kingPos[1], color);
+  }
+
+  /**
+   * Vérifie si une couleur a au moins un coup légal
+   */
+  hasAnyLegalMove(board, color) {
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const piece = board[r][c];
+        if (piece && Board.getPieceColor(piece) === color) {
+          const validMoves = this.getValidMoves(board, r, c, color);
+          if (validMoves.length > 0) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
    * Surcharge : Simule un mouvement avec les règles atomiques
    */
   getSimulatedBoard(board, from, to, piece) {

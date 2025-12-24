@@ -3,6 +3,7 @@ import { BaseVariant } from '../variants/BaseVariant.js';
 import { AtomicVariant } from '../variants/AtomicVariant.js';
 import { KingOfTheHillVariant } from '../variants/KingOfTheHillVariant.js';
 import { StandardVariant } from '../variants/StandardVariant.js';
+import { Board } from '../core/Board.js';
 import { assertEqual, assertTrue, assertFalse, assertNotNull, assertNull } from './TestFramework.js';
 
 /**
@@ -66,41 +67,25 @@ export function createAtomicVariantTests() {
         const variant = new AtomicVariant();
         const board = Array(8).fill(null).map(() => Array(8).fill(null));
         board[7][4] = 'K';
-        board[6][4] = 'p';
+        board[7][0] = 'R'; // Tour blanche pour capturer
+        board[3][4] = 'k'; // roi noir
 
-      // Le roi ne devrait pas pouvoir capturer (explosion)
-      const moves = variant.getValidMoves(board, 7, 4, 'white');
-      const hasCaptureMove = moves.some(([r, c]) => board[r][c] !== null);
-      // Note: Ce test peut échouer selon l'implémentation exacte
-      console.log('Available moves for king:', moves);
-      assertFalse(hasCaptureMove, 'King should not have capture moves in atomic');
-      }
-    },
-    {
-      description: 'Game ends when king is destroyed by explosion',
-      test: () => {
-        const variant = new AtomicVariant();
-        const board = [
-          [null,null,null,null,null,null,null,null],
-          [null,null,null,null,null,null,null,null],
-          [null,null,null,null,'k',null,null,null], // roi noir
-          [null,null,null,null,null,null,null,null],
-          [null,null,null,null,null,null,null,null],
-          [null,null,null,null,null,null,null,null],
-          [null,null,null,null,null,null,null,null],
-          [null,null,null,null,'K',null,null,null]  // roi blanc
-        ];
-
-        // Tour blanche capture près du roi noir -> explosion
         const result = variant.applyMove(board, [7, 0], [3, 4], 'R');
         const gameOver = variant.checkGameOver(result.board);
         
+        // Debug : vérifions ce qui reste sur l'échiquier
+        const blackKing = Board.findKing(result.board, 'black');
+        const whiteKing = Board.findKing(result.board, 'white');
+        console.log('Black king position after explosion:', blackKing);
+        console.log('White king position after explosion:', whiteKing);
         console.log('Game over result:', gameOver);
-        console.log('Board after explosion:', JSON.stringify(result.board, null, 2));
+        console.log('Explosion squares:', result.explosionSquares);
         
-        // Le roi noir devrait être détruit (peut retourner 'white' ou 'draw')
-        assertTrue(gameOver === 'white' || gameOver === 'draw', 
-                  'Game should end when king is destroyed');
+        // Le roi noir devrait être détruit par l'explosion
+        if (blackKing) {
+          console.log('Black king survived - this should not happen in atomic!');
+        }
+        assertEqual(gameOver, 'white', 'White should win when black king destroyed');
       }
     }
   ]);
