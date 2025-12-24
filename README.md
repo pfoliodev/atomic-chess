@@ -138,6 +138,14 @@ Une variante tactique où l'objectif principal change :
 3. 🏃 **Stratégie offensive** : Plus besoin de planquer le roi, il faut courir au centre !
 4. 🛡️ **Double menace** : Protéger son roi tout en attaquant celui de l'adversaire
 
+### 🌪️ Battle Royale
+Inspiré des jeux de survie, le plateau se réduit jusqu'au combat final :
+
+1. ⏳ **Zone de sécurité** : Toutes les 5 manches, l'anneau extérieur du plateau est détruit.
+2. ☠️ **Élimination** : Les pièces prises dans la "tempête" sont retirées du jeu.
+3. 👑 **Dernier survivant** : Le dernier roi en vie sur le plateau gagne la partie.
+4. 🔥 **Haute tension** : La pression monte à mesure que l'espace se réduit !
+
 ### ♟️ Standard Chess
 Les échecs classiques traditionnels :
 
