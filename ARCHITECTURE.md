@@ -2,7 +2,7 @@
 
 ## 📋 Vue d'ensemble
 
-L'application a été refactorisée d'une architecture monolithique vers une architecture modulaire permettant d'ajouter facilement de nouvelles variantes d'échecs.
+L'application a été refactorisée d'une architecture monolithique vers une architecture modulaire permettant d'ajouter facilement de nouvelles variantes d'échecs, avec un système de test complet et automatisé.
 
 ## 🏗️ Structure des fichiers
 
@@ -18,10 +18,21 @@ public/
     │   └── Timer.js            # Gestion du chronomètre
     ├── variants/               # Variantes de jeu
     │   ├── BaseVariant.js      # Classe abstraite (interface commune)
-    │   └── AtomicVariant.js    # Règles atomic (explosions)
+    │   ├── AtomicVariant.js    # Règles atomic (explosions)
+    │   ├── KingOfTheHillVariant.js # Règles King of the Hill
+    │   ├── BattleRoyaleVariant.js   # Règles Battle Royale
+    │   └── StandardVariant.js  # Règles échecs classiques
     ├── ui/                     # Interface utilisateur
     │   ├── Renderer.js         # Rendu de l'échiquier
     │   └── MenuUI.js           # Menu principal
+    ├── test/                   # Système de test
+    │   ├── TestFramework.js    # Framework de test de base
+    │   ├── VariantTestSuite.js # Suite de tests abstraite
+    │   ├── VariantTestSuites.js # Tests spécifiques par variante
+    │   ├── AutoTestSystem.js  # Système de test automatique
+    │   ├── RunTests.js         # Exécuteur principal
+    │   ├── RunAutomaticTests.js # Tests automatiques seulement
+    │   └── RunAutoTestsOnly.js # Tests auto isolés
     └── network/                # Réseau
         └── FirebaseSync.js     # Synchronisation online
 ```
@@ -77,6 +88,25 @@ Hérite de `BaseVariant` et implémente :
 - Surcharge `getSimulatedBoard()` : Simulation avec explosion
 - Surcharge `applyMove()` : Application avec explosion
 
+#### **KingOfTheHillVariant.js**
+Hérite de `BaseVariant` et implémente :
+- `isKingOnHill()` : Détection roi sur cases centrales
+- `getHillSquares()` : Retourne les 4 cases centrales
+- Surcharge `checkGameOver()` : Victoire par colline + mat
+- Surcharge `applyMove()` : Notation spéciale avec emoji 🏔️
+
+#### **BattleRoyaleVariant.js**
+Hérite de `BaseVariant` et implémente :
+- `shrinkBoard()` : Réduction du plateau toutes les 5 manches
+- `getSafeZone()` : Zone de sécurité actuelle
+- Surcharge `checkGameOver()` : Dernier roi survivant
+- Surcharge `applyMove()` : Logique de réduction progressive
+
+#### **StandardVariant.js**
+Hérite de `BaseVariant` sans surcharge :
+- Implémente les échecs classiques traditionnels
+- Utilise directement les règles de BaseVariant
+
 ### UI
 
 #### **Renderer.js**
@@ -100,6 +130,28 @@ Synchronisation Firebase :
 - `startSync()` : Écoute les changements
 - `updateGame()` : Met à jour l'état
 - `updateTimer()` : Sync du chronomètre
+
+### Test
+
+#### **TestFramework.js**
+Framework de test minimaliste :
+- `TestSuite` : Conteneur de tests avec exécution asynchrone
+- Assertions : `assert`, `assertEqual`, `assertTrue`, etc.
+- Pas de dépendances externes, fonctionne avec Node.js
+
+#### **VariantTestSuite.js**
+Classe de test abstraite pour variantes :
+- 10 tests communs automatiques pour toutes les variantes
+- `addVariantSpecificTest()` : Ajout de tests personnalisés
+- Validation de l'interface BaseVariant
+- Tests de régression intégrés
+
+#### **AutoTestSystem.js**
+Système de test automatique intelligent :
+- Détection automatique des nouvelles variantes
+- Génération de tests basés sur les méthodes surchargées
+- Analyse des propriétés spécifiques aux variantes
+- Rapport détaillé de couverture
 
 ### Main
 
@@ -169,12 +221,17 @@ startChess960Game(timeControl) {
 
 3. **Ajouter un bouton** dans `MenuUI.js` pour sélectionner la variante
 
+### Variantes actuellement implémentées :
+- **Standard Chess** : Échecs classiques (✅ implémenté)
+- **King of Hill** : Amener son roi au centre (✅ implémenté)
+- **Battle Royale** : Plateau qui réduit progressivement (✅ implémenté)
+
 ### Autres exemples de variantes possibles :
-- **Standard Chess** : Échecs classiques (sans explosion)
 - **Three-Check** : Gagner en mettant 3 échecs
-- **King of the Hill** : Amener son roi au centre
 - **Crazyhouse** : Replacer les pièces capturées
 - **Horde** : Un camp a 36 pions contre l'autre
+- **Chess960** : Position de départ aléatoire (Fischer Random)
+- **Antichess** : Perdre toutes ses pièces pour gagner
 
 ## 🎨 Personnalisation de l'UI
 
@@ -186,13 +243,39 @@ Pour personnaliser l'apparence :
 ## 🔧 Maintenance
 
 ### Tests
-Pour tester une variante :
+Système de test complet et automatisé :
+
+#### Tests manuels
+```bash
+npm test                    # Tous les tests
+npm run test:manual         # Tests manuels seulement
+```
+
+#### Tests automatiques
+```bash
+npm run test:auto           # Tests automatiques seulement
+```
+
+#### Tests de variante spécifique
+```javascript
+import { createAtomicVariantTests } from './test/VariantTestSuites.js';
+const tests = createAtomicVariantTests();
+tests.run();
+```
+
+#### Tests en console
 ```javascript
 const variant = new AtomicVariant();
 const board = variant.getInitialBoard();
 const moves = variant.getValidMoves(board, 6, 4, 'white');
 console.log(moves);
 ```
+
+#### Couverture de test automatique
+- 13 tests communs pour toutes les variantes
+- Tests spécifiques selon les méthodes surchargées
+- Détection automatique des nouvelles variantes
+- Validation de l'interface et régressions
 
 ### Debug
 Activer les logs dans les composants :
@@ -219,6 +302,7 @@ firebase deploy --only hosting
 4. **Maintenabilité** : Code organisé et documenté
 5. **Réutilisabilité** : Components réutilisables (Timer, Renderer, etc.)
 6. **Extensibilité** : Facile d'ajouter de nouvelles fonctionnalités
+7. **Qualité assurée** : Tests automatiques et régression
 
 ## 🔄 Migration de l'ancien code
 
@@ -231,3 +315,5 @@ Toutes les fonctionnalités ont été préservées dans la nouvelle architecture
 - Les parties en ligne utilisent Firebase Firestore
 - Le chronomètre ne démarre qu'une fois les deux joueurs connectés (online)
 - Les explosions atomiques ne détruisent pas les pions
+- Les tests garantissent la qualité et la non-régression du code
+- Le système de test automatique valide les nouvelles variantes automatiquement
