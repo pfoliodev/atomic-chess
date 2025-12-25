@@ -16,17 +16,17 @@ export class Renderer {
     const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
     const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
     const displayFiles = (game.playerColor === 'black') ? [...files].reverse() : files;
-    const displayRanks = (game.playerColor === 'black') ? [...ranks].reverse() : ranks;    
+    const displayRanks = (game.playerColor === 'black') ? [...ranks].reverse() : ranks;
 
     const boardCells = [];
-    const displayBoard = (game.playerColor === 'black') 
-      ? game.board.slice().reverse().map(r => r.slice().reverse()) 
+    const displayBoard = (game.playerColor === 'black')
+      ? game.board.slice().reverse().map(r => r.slice().reverse())
       : game.board;
-    
+
     displayBoard.forEach((row, rIdx) => {
       const actualR = (game.playerColor === 'black') ? 7 - rIdx : rIdx;
       boardCells.push(`<div class="coord coord-row">${displayRanks[rIdx]}</div>`);
-      
+
       row.forEach((piece, cIdx) => {
         const actualC = (game.playerColor === 'black') ? 7 - cIdx : cIdx;
         const isLight = (actualR + actualC) % 2 === 0;
@@ -34,10 +34,10 @@ export class Renderer {
         const isExplo = game.explosions.some(e => e[0] === actualR && e[1] === actualC);
         const isPossibleMove = validMoves.some(m => m[0] === actualR && m[1] === actualC);
         const hasPiece = piece !== null;
-        
+
         // 🔥 MODIF BATTLE ROYALE : On détecte si la case est effondrée
         const isDeadZone = game.variant.isSquareCollapsed && game.variant.isSquareCollapsed(actualR, actualC);
-        
+
         boardCells.push(`<div onclick="window.handleSquareClick(${actualR}, ${actualC})" 
                class="relative w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center text-3xl sm:text-5xl cursor-pointer
                ${isDeadZone ? 'bg-slate-900 border border-slate-800 opacity-80' : (isLight ? 'bg-[#eeeed2]' : 'bg-[#769656]')} 
@@ -63,9 +63,9 @@ export class Renderer {
     let historyHTML = "";
     for (let i = 0; i < game.moveHistory.length; i += 2) {
       historyHTML += `<div class="flex border-b border-slate-700 py-1.5 text-xs sm:text-sm">
-          <span class="w-8 text-slate-500 font-mono">${Math.floor(i/2) + 1}.</span>
+          <span class="w-8 text-slate-500 font-mono">${Math.floor(i / 2) + 1}.</span>
           <span class="flex-1 font-bold text-white">${game.moveHistory[i]}</span>
-          <span class="flex-1 font-bold text-white">${game.moveHistory[i+1] || ""}</span>
+          <span class="flex-1 font-bold text-white">${game.moveHistory[i + 1] || ""}</span>
         </div>`;
     }
 
@@ -73,7 +73,7 @@ export class Renderer {
     const blackTime = game.timer.blackTime;
     const whiteTimerClass = (whiteTime < 30 && game.currentPlayer === 'white') ? 'timer-warning' : '';
     const blackTimerClass = (blackTime < 30 && game.currentPlayer === 'black') ? 'timer-warning' : '';
-    
+
     const isGameWaiting = game.mode === 'online' && (!game.opponentConnected || game.moveHistory.length === 0);
 
     this.appElement.innerHTML = `
@@ -97,8 +97,12 @@ export class Renderer {
         </div>
         
         <div class="flex flex-col lg:flex-row gap-6 items-center lg:items-start">
-          <div id="chess-grid" class="grid grid-cols-[20px_repeat(8,1fr)] bg-slate-800 p-1 border-2 border-slate-700 shadow-2xl rounded-sm">
-            ${boardCells.join('')}
+          <div class="flex flex-col gap-2">
+            ${this.renderCapturedPieces(game.capturedByBlack, 'black')}
+            <div id="chess-grid" class="grid grid-cols-[20px_repeat(8,1fr)] bg-slate-800 p-1 border-2 border-slate-700 shadow-2xl rounded-sm">
+              ${boardCells.join('')}
+            </div>
+            ${this.renderCapturedPieces(game.capturedByWhite, 'white')}
           </div>
 
           <div class="w-full max-w-[350px] lg:w-72 bg-slate-800 rounded-xl p-4 shadow-xl flex flex-col h-[200px] lg:h-[512px]">
@@ -117,19 +121,19 @@ export class Renderer {
         
         ${game.gameOver ? this.renderGameOverModal(game) : ''}
       </div>`;
-      
+
     const historyDiv = document.querySelector('.history-scroll');
     if (historyDiv) historyDiv.scrollTop = historyDiv.scrollHeight;
   }
 
-/**
-   * Rend le modal de fin de partie
-   */
+  /**
+     * Rend le modal de fin de partie
+     */
   renderGameOverModal(game) {
     const whiteTime = game.timer.whiteTime;
     const blackTime = game.timer.blackTime;
     const isTimeout = whiteTime === 0 || blackTime === 0;
-    
+
     // Détermine le message selon la variante et la raison de la victoire
     let winMessage = '';
     if (game.gameOver === 'draw') {
@@ -137,22 +141,43 @@ export class Renderer {
     } else {
       // Vérifie si c'est une victoire King of the Hill
       if (game.variant && game.variant.isKingOnHill && game.variant.isKingOnHill(game.board, game.gameOver)) {
-        winMessage = game.gameOver === 'white' 
-          ? 'Le Roi blanc atteint la colline ! 🏔️' 
+        winMessage = game.gameOver === 'white'
+          ? 'Le Roi blanc atteint la colline ! 🏔️'
           : 'Le Roi noir atteint la colline ! 🏔️';
       } else {
         // Victoire par échec et mat
-        winMessage = game.gameOver === 'white' 
-          ? 'Échec et mat ! Les Blancs gagnent ! ♔' 
+        winMessage = game.gameOver === 'white'
+          ? 'Échec et mat ! Les Blancs gagnent ! ♔'
           : 'Échec et mat ! Les Noirs gagnent ! ♔';
       }
     }
-    
+
     return `<div class="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 p-6 text-center">
        <h1 class="text-5xl font-black text-white mb-2">${game.gameOver === 'draw' ? 'ÉGALITÉ' : (game.gameOver === 'white' ? 'BLANCS GAGNENT' : 'NOIRS GAGNENT')}</h1>
        <p class="text-yellow-500 text-2xl font-bold mb-8 italic">${isTimeout ? 'Temps écoulé !' : winMessage}</p>
        <button onclick="location.reload()" class="bg-blue-600 text-white px-12 py-4 rounded-full font-bold text-xl hover:scale-110 transition shadow-lg">REJOUER</button>
     </div>`;
+  }
+
+  /**
+   * Rend la liste des pièces capturées
+   */
+  renderCapturedPieces(pieces, color) {
+    if (!pieces || pieces.length === 0) return `<div class="h-6"></div>`;
+
+    // Trier les pièces par valeur (optionnel)
+    const order = { 'p': 1, 'n': 2, 'b': 3, 'r': 4, 'q': 5, 'k': 6 };
+    const sorted = [...pieces].sort((a, b) => order[a.toLowerCase()] - order[b.toLowerCase()]);
+
+    const pieceElements = sorted.map(p => {
+      return `<span class="text-xl sm:text-2xl" style="color: ${Board.isWhitePiece(p) ? '#FFF' : '#000'}; 
+              text-shadow: ${Board.isWhitePiece(p) ? '0 0 1px #000' : 'none'};">
+              ${Board.pieceSymbols[p]}</span>`;
+    }).join('');
+
+    return `<div class="flex flex-wrap gap-1 px-2 py-1 bg-slate-800/50 rounded-lg min-h-[32px] items-center">
+              ${pieceElements}
+            </div>`;
   }
 
   /**

@@ -17,31 +17,37 @@ export class AtomicVariant extends BaseVariant {
   applyAtomicExplosion(board, capturePos) {
     const newBoard = Board.clone(board);
     const [row, col] = capturePos;
-    
+
+    const destroyedPieces = [];
+    if (newBoard[row][col]) {
+      destroyedPieces.push(newBoard[row][col]);
+    }
+
     newBoard[row][col] = null;
     const explosionSquares = [[row, col]];
-    
+
     const neighbors = [
       [-1, -1], [-1, 0], [-1, 1],
-      [0, -1],           [0, 1],
-      [1, -1],  [1, 0],  [1, 1]
+      [0, -1], [0, 1],
+      [1, -1], [1, 0], [1, 1]
     ];
-    
+
     neighbors.forEach(([dR, dC]) => {
       const nR = row + dR;
       const nC = col + dC;
-      
+
       if (nR >= 0 && nR < 8 && nC >= 0 && nC < 8) {
         const piece = newBoard[nR][nC];
         // Les pions ne sont pas détruits par l'explosion
         if (piece && piece.toLowerCase() !== 'p') {
+          destroyedPieces.push(piece);
           newBoard[nR][nC] = null;
           explosionSquares.push([nR, nC]);
         }
       }
     });
-    
-    return { newBoard, explosionSquares };
+
+    return { newBoard, explosionSquares, destroyedPieces };
   }
 
   /**
@@ -53,22 +59,22 @@ export class AtomicVariant extends BaseVariant {
     const [tR, tC] = to;
     const isCapture = board[tR][tC] !== null;
     const isEP = this.canCaptureEnPassant(board, from, to);
-    
+
     // Dans Atomic, le roi ne peut pas capturer (il serait détruit par l'explosion)
     if (piece.toLowerCase() === 'k' && (isCapture || isEP)) {
       return false;
     }
-    
+
     // Utilise la simulation atomique pour vérifier la sécurité
     const futureBoard = this.getSimulatedBoard(board, from, to, piece);
-    
+
     // Vérifie si le roi adverse existe encore (ex: variantes atomic)
     const opponentColor = Board.getPieceColor(piece) === 'white' ? 'black' : 'white';
     if (!Board.findKing(futureBoard, opponentColor)) return true;
-    
+
     const myKingPos = Board.findKing(futureBoard, Board.getPieceColor(piece));
     if (!myKingPos) return false;
-    
+
     return !this.isSquareAttacked(futureBoard, myKingPos[0], myKingPos[1], Board.getPieceColor(piece));
   }
 
@@ -78,11 +84,11 @@ export class AtomicVariant extends BaseVariant {
   checkGameOver(board) {
     const wK = Board.findKing(board, 'white');
     const bK = Board.findKing(board, 'black');
-    
+
     if (!wK && !bK) return 'draw';
     if (!wK) return 'black';
     if (!bK) return 'white';
-    
+
     // Vérifie s'il y a échec et mat
     return this.checkAtomicCheckmate(board);
   }
@@ -97,14 +103,14 @@ export class AtomicVariant extends BaseVariant {
         return 'black';
       }
     }
-    
+
     // Vérifie si le roi noir est en échec
     if (this.isKingInCheck(board, 'black')) {
       if (!this.hasAnyLegalMove(board, 'black')) {
         return 'white';
       }
     }
-    
+
     // Vérifie le pat (pas d'échec mais aucun coup légal)
     if (!this.isKingInCheck(board, 'white') && !this.hasAnyLegalMove(board, 'white')) {
       return 'draw';
@@ -112,7 +118,7 @@ export class AtomicVariant extends BaseVariant {
     if (!this.isKingInCheck(board, 'black') && !this.hasAnyLegalMove(board, 'black')) {
       return 'draw';
     }
-    
+
     return null;
   }
 
@@ -122,7 +128,7 @@ export class AtomicVariant extends BaseVariant {
   isKingInCheck(board, color) {
     const kingPos = Board.findKing(board, color);
     if (!kingPos) return false;
-    
+
     return this.isSquareAttacked(board, kingPos[0], kingPos[1], color);
   }
 
@@ -153,7 +159,7 @@ export class AtomicVariant extends BaseVariant {
     const [tR, tC] = to;
     const isCapture = simBoard[tR][tC] !== null;
     const isEP = this.canCaptureEnPassant(board, from, to);
-    
+
     if (isCapture || isEP) {
       // Détermine la position de capture (pour en passant)
       let capturePos;
@@ -162,7 +168,7 @@ export class AtomicVariant extends BaseVariant {
       } else {
         capturePos = [tR, tC];
       }
-      
+
       // Applique l'explosion
       const { newBoard } = this.applyAtomicExplosion(simBoard, capturePos);
       simBoard = newBoard;
@@ -171,7 +177,7 @@ export class AtomicVariant extends BaseVariant {
       // Mouvement normal sans capture
       simBoard[tR][tC] = piece;
       simBoard[fR][fC] = null;
-      
+
       // Gestion du roque
       if (piece.toLowerCase() === 'k' && Math.abs(tC - fC) === 2) {
         const rCol = tC === 6 ? 7 : 0;
@@ -180,7 +186,7 @@ export class AtomicVariant extends BaseVariant {
         simBoard[fR][rCol] = null;
       }
     }
-    
+
     return simBoard;
   }
 
@@ -193,38 +199,40 @@ export class AtomicVariant extends BaseVariant {
     const isCastling = piece.toLowerCase() === 'k' && Math.abs(tC - fC) === 2;
     const isCapture = board[tR][tC] !== null;
     const isEP = this.canCaptureEnPassant(board, from, to);
-    
+
     // Notation algébrique
     let moveNotation;
     if (isCastling) {
       moveNotation = tC === 6 ? "O-O" : "O-O-O";
     } else {
-      const symbol = Board.pieceSymbols[piece].replace('\uFE0E','') || "";
+      const symbol = Board.pieceSymbols[piece].replace('\uFE0E', '') || "";
       moveNotation = symbol + " " + Board.toAlgebraic(tR, tC);
     }
-    
+
     if (isCapture || isEP) moveNotation += " 💥";
-    
+
     let newBoard;
     let explosionSquares = [];
-    
+    let destroyedPieces = [];
+
     if (isCapture || isEP) {
       // Détermine la position de capture
-      const capturePos = isEP 
+      const capturePos = isEP
         ? (Board.isWhitePiece(piece) ? [tR + 1, tC] : [tR - 1, tC])
         : [tR, tC];
-      
+
       // Applique l'explosion atomique
       const result = this.applyAtomicExplosion(board, capturePos);
       newBoard = result.newBoard;
       explosionSquares = result.explosionSquares;
+      destroyedPieces = result.destroyedPieces;
       newBoard[fR][fC] = null;
     } else {
       // Mouvement normal
       newBoard = Board.clone(board);
       newBoard[tR][tC] = piece;
       newBoard[fR][fC] = null;
-      
+
       // Roque
       if (isCastling) {
         const rCol = tC === 6 ? 7 : 0;
@@ -233,12 +241,12 @@ export class AtomicVariant extends BaseVariant {
         newBoard[tR][rCol] = null;
       }
     }
-    
+
     // Promotion
     if (piece.toLowerCase() === 'p' && (tR === 0 || tR === 7)) {
       newBoard[tR][tC] = Board.isWhitePiece(piece) ? 'Q' : 'q';
     }
-    
+
     // Mise à jour des flags
     if (piece.toLowerCase() === 'k') {
       this.kingMoved[Board.getPieceColor(piece)] = true;
@@ -249,13 +257,14 @@ export class AtomicVariant extends BaseVariant {
       else if (fR === 0 && fC === 0) this.rookMoved.blackQueenSide = true;
       else if (fR === 0 && fC === 7) this.rookMoved.blackKingSide = true;
     }
-    
+
     this.lastMove = { from, to, piece };
-    
+
     return {
       board: newBoard,
       explosionSquares,
-      moveNotation
+      moveNotation,
+      destroyedPieces
     };
   }
 }

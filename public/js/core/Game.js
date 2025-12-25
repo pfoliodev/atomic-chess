@@ -14,9 +14,11 @@ export class Game {
     this.explosions = [];
     this.gameOver = null;
     this.moveHistory = [];
+    this.capturedByWhite = []; // Pièces prises par les blancs (doivent être noires)
+    this.capturedByBlack = []; // Pièces prises par les noirs (doivent être blanches)
     this.playerColor = null; // Pour le mode online
     this.opponentConnected = false;
-    
+
     // Timer
     this.timer = new Timer(timeControl, timeControl);
     this.timer.onTick = (whiteTime, blackTime) => {
@@ -30,7 +32,7 @@ export class Game {
         this.onGameOver(winner, 'timeout');
       }
     };
-    
+
     // Callbacks
     this.onMove = null;
     this.onGameOver = null;
@@ -43,21 +45,21 @@ export class Game {
    */
   startTimer() {
     this.timer.start();
-    
+
     // Logique pour mettre en pause le timer selon les conditions
     const updateTimerState = () => {
       const isGameStarted = this.moveHistory.length > 0;
-      const canRun = !this.gameOver && 
-                     (this.mode === 'local' || 
-                      (this.mode === 'online' && this.opponentConnected && isGameStarted));
-      
+      const canRun = !this.gameOver &&
+        (this.mode === 'local' ||
+          (this.mode === 'online' && this.opponentConnected && isGameStarted));
+
       if (canRun && !this.timer.isRunning) {
         this.timer.resume();
       } else if (!canRun && this.timer.isRunning) {
         this.timer.pause();
       }
     };
-    
+
     // Mettre à jour l'état du timer périodiquement
     this.timerUpdateInterval = setInterval(() => {
       updateTimerState();
@@ -73,7 +75,7 @@ export class Game {
         return null;
       };
     }, 100);
-    
+
     updateTimerState();
   }
 
@@ -130,15 +132,29 @@ export class Game {
 
     // Applique le mouvement via la variante
     const result = this.variant.applyMove(this.board, from, to, piece);
-    
+
     this.board = result.board;
     this.explosions = result.explosionSquares;
     this.moveHistory.push(result.moveNotation);
+
+    // Gérer les captures
+    if (result.destroyedPieces) {
+      // Cas Atomic
+      result.destroyedPieces.forEach(p => {
+        if (Board.isWhitePiece(p)) this.capturedByBlack.push(p);
+        else this.capturedByWhite.push(p);
+      });
+    } else if (result.capturedPiece) {
+      // Cas Standard
+      if (Board.isWhitePiece(result.capturedPiece)) this.capturedByBlack.push(result.capturedPiece);
+      else this.capturedByWhite.push(result.capturedPiece);
+    }
+
     this.currentPlayer = this.currentPlayer === 'white' ? 'black' : 'white';
     this.selectedSquare = null;
     this.timer.lastTimerUpdate = Date.now();
 
-// Vérifie la fin de partie
+    // Vérifie la fin de partie
     const gameOverState = this.variant.checkGameOver(this.board);
     if (gameOverState) {
       this.gameOver = gameOverState;
@@ -172,12 +188,14 @@ export class Game {
         variantState: this.variant.getState(),
         whiteTime: this.timer.whiteTime,
         blackTime: this.timer.blackTime,
-        gameOver: this.gameOver
+        gameOver: this.gameOver,
+        capturedByWhite: this.capturedByWhite,
+        capturedByBlack: this.capturedByBlack
       });
     }
 
     if (this.onStateChange) this.onStateChange();
-    
+
     return true;
   }
 
@@ -187,9 +205,9 @@ export class Game {
   getValidMovesForSelected() {
     if (!this.selectedSquare) return [];
     return this.variant.getValidMoves(
-      this.board, 
-      this.selectedSquare[0], 
-      this.selectedSquare[1], 
+      this.board,
+      this.selectedSquare[0],
+      this.selectedSquare[1],
       this.currentPlayer
     );
   }
@@ -206,15 +224,17 @@ export class Game {
       rookMoved: state.rookMoved,
       lastMove: state.lastMove
     });
-    
+
     if (state.whiteTime !== undefined) this.timer.whiteTime = state.whiteTime;
     if (state.blackTime !== undefined) this.timer.blackTime = state.blackTime;
     if (state.lastTimerUpdate) this.timer.lastTimerUpdate = state.lastTimerUpdate;
+    if (state.capturedByWhite) this.capturedByWhite = state.capturedByWhite;
+    if (state.capturedByBlack) this.capturedByBlack = state.capturedByBlack;
     if (state.gameOver) {
       this.gameOver = state.gameOver;
       this.timer.stop();
     }
-    
+
     if (this.onStateChange) this.onStateChange();
   }
 
@@ -237,6 +257,8 @@ export class Game {
     this.explosions = [];
     this.gameOver = null;
     this.moveHistory = [];
+    this.capturedByWhite = [];
+    this.capturedByBlack = [];
     this.timer.reset(600, 600);
     if (this.onStateChange) this.onStateChange();
   }

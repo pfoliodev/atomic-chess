@@ -6,11 +6,11 @@ import { Board } from '../core/Board.js';
 export class BaseVariant {
   constructor() {
     this.kingMoved = { white: false, black: false };
-    this.rookMoved = { 
-      whiteKingSide: false, 
-      whiteQueenSide: false, 
-      blackKingSide: false, 
-      blackQueenSide: false 
+    this.rookMoved = {
+      whiteKingSide: false,
+      whiteQueenSide: false,
+      blackKingSide: false,
+      blackQueenSide: false
     };
     this.lastMove = null;
   }
@@ -21,14 +21,14 @@ export class BaseVariant {
    */
   getInitialBoard() {
     return [
-      ['r','n','b','q','k','b','n','r'],
-      ['p','p','p','p','p','p','p','p'],
-      [null,null,null,null,null,null,null,null],
-      [null,null,null,null,null,null,null,null],
-      [null,null,null,null,null,null,null,null],
-      [null,null,null,null,null,null,null,null],
-      ['P','P','P','P','P','P','P','P'],
-      ['R','N','B','Q','K','B','N','R']
+      ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
+      ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+      ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
     ];
   }
 
@@ -46,7 +46,7 @@ export class BaseVariant {
     if (type === 'p') {
       const dir = Board.isWhitePiece(piece) ? -1 : 1;
       if (ignoreSafety) return tR === fR + dir && colDiff === 1;
-      
+
       if (fC === tC && !target) {
         if (tR === fR + dir) return true;
         if (fR === (Board.isWhitePiece(piece) ? 6 : 1) && tR === fR + 2 * dir && !board[fR + dir][fC]) return true;
@@ -87,7 +87,7 @@ export class BaseVariant {
     if (this.kingMoved[color]) return false;
     const row = color === 'white' ? 7 : 0;
     if (this.isSquareAttacked(board, row, 4, color)) return false;
-    
+
     if (side === 'kingside') {
       if (this.rookMoved[color + 'KingSide'] || board[row][5] || board[row][6]) return false;
       return !this.isSquareAttacked(board, row, 5, color) && !this.isSquareAttacked(board, row, 6, color);
@@ -104,10 +104,10 @@ export class BaseVariant {
     if (!this.lastMove || board[from[0]][from[1]].toLowerCase() !== 'p') return false;
     const [lFR, lFC] = this.lastMove.from;
     const [lTR, lTC] = this.lastMove.to;
-    return this.lastMove.piece.toLowerCase() === 'p' && 
-           Math.abs(lFR - lTR) === 2 && 
-           lTR === from[0] && 
-           lTC === to[1];
+    return this.lastMove.piece.toLowerCase() === 'p' &&
+      Math.abs(lFR - lTR) === 2 &&
+      lTR === from[0] &&
+      lTC === to[1];
   }
 
   /**
@@ -117,14 +117,14 @@ export class BaseVariant {
   isMoveSafe(board, from, to, piece) {
     const myColor = Board.getPieceColor(piece);
     const futureBoard = this.getSimulatedBoard(board, from, to, piece);
-    
+
     // Vérifie si le roi adverse existe encore (ex: variantes atomic)
     const opponentColor = myColor === 'white' ? 'black' : 'white';
     if (!Board.findKing(futureBoard, opponentColor)) return true;
-    
+
     const myKingPos = Board.findKing(futureBoard, myColor);
     if (!myKingPos) return false;
-    
+
     return !this.isSquareAttacked(futureBoard, myKingPos[0], myKingPos[1], myColor);
   }
 
@@ -138,7 +138,7 @@ export class BaseVariant {
     const [tR, tC] = to;
     const isCapture = simBoard[tR][tC] !== null;
     const isEP = this.canCaptureEnPassant(board, from, to);
-    
+
     if (isCapture || isEP) {
       if (isEP) {
         const captureRow = Board.isWhitePiece(piece) ? tR + 1 : tR - 1;
@@ -149,7 +149,7 @@ export class BaseVariant {
     } else {
       simBoard[tR][tC] = piece;
       simBoard[fR][fC] = null;
-      
+
       // Gestion du roque
       if (piece.toLowerCase() === 'k' && Math.abs(tC - fC) === 2) {
         const rCol = tC === 6 ? 7 : 0;
@@ -158,14 +158,10 @@ export class BaseVariant {
         simBoard[fR][rCol] = null;
       }
     }
-    
+
     return simBoard;
   }
 
-  /**
-   * Applique un mouvement et retourne le nouvel état
-   * @returns {Object} { board, explosionSquares, moveNotation }
-   */
   applyMove(board, from, to, piece) {
     const [fR, fC] = from;
     const [tR, tC] = to;
@@ -173,27 +169,27 @@ export class BaseVariant {
     const isCastling = piece.toLowerCase() === 'k' && Math.abs(tC - fC) === 2;
     const isCapture = board[tR][tC] !== null;
     const isEP = this.canCaptureEnPassant(board, from, to);
-    
+
     // Notation algébrique
     let moveNotation;
     if (isCastling) {
       moveNotation = tC === 6 ? "O-O" : "O-O-O";
     } else {
-      const symbol = Board.pieceSymbols[piece].replace('\uFE0E','') || "";
+      const symbol = Board.pieceSymbols[piece].replace('\uFE0E', '') || "";
       moveNotation = symbol + " " + Board.toAlgebraic(tR, tC);
     }
-    
+
     if (isCapture) moveNotation += " 💥";
-    
+
     // Application du mouvement
     if (isEP) {
       const captureRow = Board.isWhitePiece(piece) ? tR + 1 : tR - 1;
       newBoard[captureRow][tC] = null;
     }
-    
+
     newBoard[tR][tC] = piece;
     newBoard[fR][fC] = null;
-    
+
     // Roque
     if (isCastling) {
       const rCol = tC === 6 ? 7 : 0;
@@ -201,12 +197,12 @@ export class BaseVariant {
       newBoard[tR][rTo] = newBoard[tR][rCol];
       newBoard[tR][rCol] = null;
     }
-    
+
     // Promotion
     if (piece.toLowerCase() === 'p' && (tR === 0 || tR === 7)) {
       newBoard[tR][tC] = Board.isWhitePiece(piece) ? 'Q' : 'q';
     }
-    
+
     // Mise à jour des flags
     if (piece.toLowerCase() === 'k') {
       this.kingMoved[Board.getPieceColor(piece)] = true;
@@ -217,13 +213,14 @@ export class BaseVariant {
       else if (fR === 0 && fC === 0) this.rookMoved.blackQueenSide = true;
       else if (fR === 0 && fC === 7) this.rookMoved.blackKingSide = true;
     }
-    
+
     this.lastMove = { from, to, piece };
-    
+
     return {
       board: newBoard,
       explosionSquares: [],
-      moveNotation
+      moveNotation,
+      capturedPiece: isEP ? (Board.isWhitePiece(piece) ? 'p' : 'P') : (isCapture ? board[tR][tC] : null)
     };
   }
 
@@ -233,28 +230,28 @@ export class BaseVariant {
   getValidMoves(board, fromRow, fromCol, currentPlayer) {
     const piece = board[fromRow][fromCol];
     const validMoves = [];
-    
+
     if (!piece || Board.getPieceColor(piece) !== currentPlayer) return [];
-    
+
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
         const target = board[r][c];
         if (target && Board.getPieceColor(target) === currentPlayer) continue;
-        
+
         let possible = false;
-        
+
         if (piece.toLowerCase() === 'k' && Math.abs(c - fromCol) === 2 && r === fromRow) {
           possible = this.canCastle(board, Board.getPieceColor(piece), c === 6 ? 'kingside' : 'queenside');
         } else {
           possible = this.checkBasicMove(board, [fromRow, fromCol], [r, c], piece);
         }
-        
+
         if (possible && this.isMoveSafe(board, [fromRow, fromCol], [r, c], piece)) {
           validMoves.push([r, c]);
         }
       }
     }
-    
+
     return validMoves;
   }
 
@@ -265,11 +262,11 @@ export class BaseVariant {
   checkGameOver(board) {
     const wK = Board.findKing(board, 'white');
     const bK = Board.findKing(board, 'black');
-    
+
     if (!wK && !bK) return 'draw';
     if (!wK) return 'black';
     if (!bK) return 'white';
-    
+
     return null;
   }
 
@@ -278,11 +275,11 @@ export class BaseVariant {
    */
   reset() {
     this.kingMoved = { white: false, black: false };
-    this.rookMoved = { 
-      whiteKingSide: false, 
-      whiteQueenSide: false, 
-      blackKingSide: false, 
-      blackQueenSide: false 
+    this.rookMoved = {
+      whiteKingSide: false,
+      whiteQueenSide: false,
+      blackKingSide: false,
+      blackQueenSide: false
     };
     this.lastMove = null;
   }
