@@ -139,4 +139,39 @@ export class Board {
 
     return fen;
   }
+
+  /**
+   * Retourne la liste des pièces éliminées pour chaque camp
+   */
+  static getEliminatedPieces(board) {
+    const initialCounts = {
+      'P': 8, 'N': 2, 'B': 2, 'R': 2, 'Q': 1, 'K': 1,
+      'p': 8, 'n': 2, 'b': 2, 'r': 2, 'q': 1, 'k': 1
+    };
+
+    const currentCounts = {};
+    board.flat().forEach(piece => {
+      if (piece) {
+        currentCounts[piece] = (currentCounts[piece] || 0) + 1;
+      }
+    });
+
+    const eliminated = { white: [], black: [] };
+    for (const [piece, count] of Object.entries(initialCounts)) {
+      const missing = count - (currentCounts[piece] || 0);
+      if (missing > 0) {
+        for (let i = 0; i < missing; i++) {
+          if (Board.isWhitePiece(piece)) eliminated.white.push(piece);
+          else eliminated.black.push(piece);
+        }
+      }
+    }
+
+    // Tri pour un affichage plus propre (Pions, Cavaliers, Fous, Tours, Dames)
+    const order = { 'P': 1, 'N': 2, 'B': 3, 'R': 4, 'Q': 5, 'K': 6, 'p': 1, 'n': 2, 'b': 3, 'r': 4, 'q': 5, 'k': 6 };
+    eliminated.white.sort((a, b) => order[a] - order[b]);
+    eliminated.black.sort((a, b) => order[a] - order[b]);
+
+    return eliminated;
+  }
 }

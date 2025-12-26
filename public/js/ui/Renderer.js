@@ -37,10 +37,10 @@ export class Renderer {
 
         const isDeadZone = game.variant.isSquareCollapsed && game.variant.isSquareCollapsed(actualR, actualC);
 
-        // Modern palette: Slate-200 (light) and Slate-600 (dark) or sophisticated Slate match
-        const lightColor = 'bg-[#f8fafc]'; // Slate-50
-        const darkColor = 'bg-[#cbd5e1]';  // Slate-300
-        const selColor = 'bg-blue-400/50';
+        // High-contrast professional palette
+        const lightColor = 'bg-[#e2e8f0]'; // Slate-200
+        const darkColor = 'bg-[#94a3b8]';  // Slate-400
+        const selColor = 'bg-blue-500/40';
 
         boardCells.push(`<div onclick="window.handleSquareClick(${actualR}, ${actualC})" 
                class="relative aspect-square flex items-center justify-center text-3xl sm:text-5xl cursor-pointer transition-colors
@@ -51,8 +51,8 @@ export class Renderer {
                ${!isDeadZone && isPossibleMove ? (hasPiece ? `<div class="capture-ring absolute z-30"></div>` : `<div class="move-dot z-30"></div>`) : ''}
                
                <span class="chess-piece relative z-10" 
-                     style="color: ${Board.isWhitePiece(piece) ? '#FFF' : '#334155'}; 
-                     text-shadow: ${Board.isWhitePiece(piece) ? '0 2px 4px rgba(0,0,0,0.3), 0 0 2px rgba(0,0,0,0.5)' : 'none'};">
+                     style="color: ${Board.isWhitePiece(piece) ? '#FFFFFF' : '#0f172a'}; 
+                     text-shadow: ${Board.isWhitePiece(piece) ? '0 0 4px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2)' : '0 1px 2px rgba(255,255,255,0.1)'};">
                   ${piece ? Board.pieceSymbols[piece] : ''}
                </span>
           </div>`);
@@ -77,6 +77,7 @@ export class Renderer {
     const whiteTimerClass = (whiteTime < 30 && game.currentPlayer === 'white') ? 'timer-warning' : '';
     const blackTimerClass = (blackTime < 30 && game.currentPlayer === 'black') ? 'timer-warning' : '';
     const isGameWaiting = game.mode === 'online' && (!game.opponentConnected || game.moveHistory.length === 0);
+    const eliminated = Board.getEliminatedPieces(game.board);
 
     this.appElement.innerHTML = `
       <div class="h-screen bg-slate-950 text-white flex flex-col font-sans overflow-hidden">
@@ -103,7 +104,12 @@ export class Renderer {
             <div class="w-full max-w-[min(90vw,512px)] flex justify-between items-end mb-4 px-2">
                <div class="flex flex-col">
                  <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${game.playerColor === 'white' ? 'Adversaire' : 'Vous'}</span>
-                 <span class="text-xs font-black uppercase ${game.currentPlayer === 'black' ? 'text-blue-400' : 'text-white'}">NOIRS</span>
+                 <div class="flex items-center gap-2">
+                   <span class="text-xs font-black uppercase ${game.currentPlayer === 'black' ? 'text-blue-400' : 'text-white'}">NOIRS</span>
+                   <div class="flex flex-wrap gap-0.5 opacity-40">
+                     ${eliminated.black.map(p => `<span class="text-[14px]" style="color: #0f172a">${Board.pieceSymbols[p]}</span>`).join('')}
+                   </div>
+                 </div>
                </div>
                <div class="text-3xl font-mono font-bold tracking-tight ${blackTimerClass}">
                  ${isGameWaiting && game.currentPlayer === 'black' ? '...' : Timer.formatTime(blackTime)}
@@ -120,9 +126,14 @@ export class Renderer {
                <div class="text-3xl font-mono font-bold tracking-tight ${whiteTimerClass}">
                  ${isGameWaiting && game.currentPlayer === 'white' ? 'Wait' : Timer.formatTime(whiteTime)}
                </div>
-               <div class="flex flex-col items-end">
+               <div class="flex flex-col items-end text-right">
                  <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${game.playerColor === 'white' ? 'Vous' : 'Adversaire'}</span>
-                 <span class="text-xs font-black uppercase ${game.currentPlayer === 'white' ? 'text-blue-400' : 'text-white'}">BLANCS</span>
+                 <div class="flex items-center gap-2 flex-row-reverse">
+                   <span class="text-xs font-black uppercase ${game.currentPlayer === 'white' ? 'text-blue-400' : 'text-white'}">BLANCS</span>
+                   <div class="flex flex-wrap gap-0.5 opacity-40">
+                     ${eliminated.white.map(p => `<span class="text-[14px]" style="color: #FFFFFF">${Board.pieceSymbols[p]}</span>`).join('')}
+                   </div>
+                 </div>
                </div>
             </div>
 
