@@ -12,6 +12,12 @@ export class Renderer {
    * Rend l'échiquier et l'interface de jeu
    */
   renderGame(game, gameCode = null) {
+    const board = game.getDisplayBoard();
+    const eliminated = Board.getEliminatedPieces(board);
+    const moves = game.moveHistory;
+    const isGameOver = !!game.gameOver;
+    const isReview = game.reviewIndex !== -1;
+
     const validMoves = game.getValidMovesForSelected();
     const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
     const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
@@ -20,8 +26,8 @@ export class Renderer {
 
     const boardCells = [];
     const displayBoard = (game.playerColor === 'black')
-      ? game.board.slice().reverse().map(r => r.slice().reverse())
-      : game.board;
+      ? board.slice().reverse().map(r => r.slice().reverse())
+      : board;
 
     displayBoard.forEach((row, rIdx) => {
       const actualR = (game.playerColor === 'black') ? 7 - rIdx : rIdx;
@@ -69,8 +75,8 @@ export class Renderer {
     for (let i = 0; i < game.moveHistory.length; i += 2) {
       historyHTML += `<div class="grid grid-cols-12 gap-2 border-b border-white/5 py-2 text-[11px] sm:text-xs font-medium">
           <span class="col-span-2 text-slate-500 font-mono">${Math.floor(i / 2) + 1}.</span>
-          <span class="col-span-5 text-white">${game.moveHistory[i]}</span>
-          <span class="col-span-5 text-slate-300">${game.moveHistory[i + 1] || ""}</span>
+          <span class="col-span-5 text-white">${game.moveHistory[i].notation}</span>
+          <span class="col-span-5 text-slate-300">${game.moveHistory[i + 1] ? game.moveHistory[i + 1].notation : ""}</span>
         </div>`;
     }
 
@@ -79,7 +85,6 @@ export class Renderer {
     const whiteTimerClass = (whiteTime < 30 && game.currentPlayer === 'white') ? 'timer-warning' : '';
     const blackTimerClass = (blackTime < 30 && game.currentPlayer === 'black') ? 'timer-warning' : '';
     const isGameWaiting = game.mode === 'online' && (!game.opponentConnected || game.moveHistory.length === 0);
-    const eliminated = Board.getEliminatedPieces(game.board);
 
     this.appElement.innerHTML = `
       <div class="h-screen bg-slate-950 text-white flex flex-col font-sans overflow-hidden">
