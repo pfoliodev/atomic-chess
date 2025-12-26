@@ -106,10 +106,10 @@ export class Renderer {
         <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
           
           <!-- Game Board Area -->
-          <div class="flex-1 flex flex-col items-center justify-center p-2 sm:p-6 overflow-hidden">
+          <div class="flex-1 flex flex-col items-center justify-center p-1 sm:p-6 overflow-hidden">
             
             <!-- Opponent info -->
-            <div class="w-full max-w-[min(90vw,512px)] flex justify-between items-end mb-4 px-2">
+            <div class="w-full max-w-[min(90vw,512px)] flex justify-between items-end mb-2 sm:mb-4 px-2">
                <div class="flex-1 flex flex-col min-h-[48px] justify-end overflow-hidden">
                  <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${game.playerColor === 'white' ? 'Adversaire' : 'Vous'}</span>
                  <div class="flex items-center gap-2">
@@ -168,24 +168,24 @@ export class Renderer {
           </div>
 
           <!-- Sidepanel (History) -->
-          <div class="w-full lg:w-80 bg-slate-900/50 border-t lg:border-t-0 lg:border-l border-white/5 flex flex-col shrink-0">
+          <div class="w-full lg:w-80 bg-slate-900/50 border-t lg:border-t-0 lg:border-l border-white/5 flex flex-col shrink-0 overflow-hidden">
              ${game.mode === 'coach' ? `
-             <div class="p-4 border-b border-indigo-500/30 bg-indigo-600/5 ${game.coachFeedback && game.coachFeedback.includes('ALERTE') ? 'critical-alert' : ''}">
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="w-2 h-2 ${game.coachFeedback && game.coachFeedback.includes('ALERTE') ? 'bg-red-500' : 'bg-indigo-500'} rounded-full animate-pulse"></span>
-                  <h3 class="text-[10px] font-black uppercase tracking-[0.2em] ${game.coachFeedback && game.coachFeedback.includes('ALERTE') ? 'text-red-400' : 'text-indigo-400'}">ANALYSE DU COACH</h3>
+             <div class="p-3 sm:p-4 border-b border-indigo-500/30 bg-indigo-600/5 ${game.coachFeedback && game.coachFeedback.includes('ALERTE') ? 'critical-alert' : ''}">
+                <div class="flex items-center gap-2 mb-1 sm:mb-2">
+                  <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 ${game.coachFeedback && game.coachFeedback.includes('ALERTE') ? 'bg-red-500' : 'bg-indigo-500'} rounded-full animate-pulse"></span>
+                  <h3 class="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] ${game.coachFeedback && game.coachFeedback.includes('ALERTE') ? 'text-red-400' : 'text-indigo-400'}">ANALYSE DU COACH</h3>
                 </div>
-                <div id="coach-message" class="text-indigo-100 text-xs font-medium leading-relaxed min-h-[3em]">
+                <div id="coach-message" class="text-indigo-100 text-[10px] sm:text-xs font-medium leading-relaxed min-h-[2.5em] sm:min-h-[3em]">
                   ${game.coachFeedback || "En attente de votre premier coup..."}
                 </div>
              </div>
              ` : ''}
-             <div class="p-4 border-b border-white/5 flex justify-between items-center">
+             <div class="p-3 sm:p-4 border-b border-white/5 flex justify-between items-center">
                 <h3 class="text-xs font-black uppercase tracking-widest text-slate-500 italic">LOG DE COMBAT</h3>
-                <span class="text-[9px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-mono">${game.moveHistory.length} MOVES</span>
+                <span class="text-[8px] sm:text-[9px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-mono">${game.moveHistory.length} MOVES</span>
              </div>
-             <div class="history-scroll overflow-y-auto flex-1 p-4 lg:max-h-full max-h-[150px]">
-                ${game.moveHistory.length === 0 ? '<div class="h-full flex flex-col items-center justify-center opacity-20"><span class="text-5xl mb-4">♟️</span><p class="text-[10px] font-black uppercase tracking-[0.2em]">En attente du premier coup</p></div>' : historyHTML}
+             <div class="history-scroll overflow-y-auto flex-1 p-3 sm:p-4 lg:max-h-full max-h-[100px] sm:max-h-[150px]">
+                ${game.moveHistory.length === 0 ? '<div class="h-full flex flex-col items-center justify-center opacity-20"><span class="text-3xl sm:text-5xl mb-2 sm:mb-4">♟️</span><p class="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.2em]">En attente du premier coup</p></div>' : historyHTML}
              </div>
           </div>
 
@@ -222,15 +222,15 @@ export class Renderer {
     }
 
     return `
-    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-full max-w-sm px-6 animate-in slide-in-from-bottom duration-500">
-       <div class="glass-panel p-6 sm:p-8 rounded-[2rem] border border-white/10 shadow-3xl text-center bg-slate-900/80 backdrop-blur-3xl">
-         <h1 class="text-xl sm:text-2xl font-black text-white mb-1 tracking-tighter uppercase">${winTitle}</h1>
-         <p class="text-blue-400 text-[10px] font-bold mb-6 uppercase tracking-widest">${winMessage}</p>
+    <div class="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-[100] w-full max-w-[min(90vw,384px)] px-4 sm:px-6 animate-in slide-in-from-bottom duration-500">
+       <div class="glass-panel p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] border border-white/10 shadow-3xl text-center bg-slate-900/80 backdrop-blur-3xl">
+         <h1 class="text-lg sm:text-2xl font-black text-white mb-0.5 sm:mb-1 tracking-tighter uppercase">${winTitle}</h1>
+         <p class="text-blue-400 text-[9px] sm:text-[10px] font-bold mb-4 sm:mb-6 uppercase tracking-widest">${winMessage}</p>
          
          <div class="grid grid-cols-2 gap-2">
-           <button onclick="location.reload()" class="bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-all">REJOUER</button>
-           <button onclick="window.handleHideGameOver()" class="bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold text-xs active:scale-95 transition-all">ANALYSER</button>
-           <button onclick="location.reload()" class="col-span-2 bg-slate-800 text-slate-500 py-2 rounded-xl font-bold text-[9px] uppercase tracking-widest hover:bg-slate-700 transition-colors mt-1">MENU PRINCIPAL</button>
+           <button onclick="location.reload()" class="bg-blue-600 hover:bg-blue-500 text-white py-2.5 sm:py-3 rounded-xl font-bold text-[10px] sm:text-xs shadow-lg active:scale-95 transition-all uppercase">Rejouer</button>
+           <button onclick="window.handleHideGameOver()" class="bg-slate-700 hover:bg-slate-600 text-white py-2.5 sm:py-3 rounded-xl font-bold text-[10px] sm:text-xs active:scale-95 transition-all uppercase">Analyser</button>
+           <button onclick="location.reload()" class="col-span-2 bg-slate-800 text-slate-500 py-2 rounded-xl font-bold text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-slate-700 transition-colors mt-1">Menu Principal</button>
          </div>
        </div>
     </div>`;

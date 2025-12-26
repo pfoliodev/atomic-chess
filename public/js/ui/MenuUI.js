@@ -32,10 +32,10 @@ export class MenuUI {
           <div>
             <label class="text-slate-400 text-[10px] font-bold uppercase tracking-widest block mb-3">SÉLECTIONNER UNE VARIANTE</label>
             <div class="grid grid-cols-2 gap-3">
-              ${this.renderVariantBtn('atomic', 'Atomic')}
-              ${this.renderVariantBtn('kingofthehill', 'King of the Hill')}
-              ${this.renderVariantBtn('standard', 'Standard')}
-              ${this.renderVariantBtn('battleroyale', 'Battle Royale')}
+              ${this.renderVariantBtn('atomic', 'Atomic', './assets/menu/atom.png')}
+              ${this.renderVariantBtn('kingofthehill', 'King of the Hill', './assets/menu/KOFTH.png')}
+              ${this.renderVariantBtn('standard', 'Standard', './assets/menu/standard.png')}
+              ${this.renderVariantBtn('battleroyale', 'Battle Royale', './assets/menu/BattleRoyale.png')}
             </div>
           </div>
 
@@ -64,20 +64,50 @@ export class MenuUI {
 
           <!-- Main Actions -->
           <div class="space-y-3 pt-4 border-t border-white/5">
-            <button id="btn-ai" class="w-full btn-primary py-4 rounded-xl font-bold text-white shadow-lg shadow-blue-900/20 active:scale-[0.98]">OFFLINE VS IA</button>
-            <button id="btn-coach" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-xl font-bold transition-all border border-indigo-500 active:scale-[0.98] shadow-lg shadow-indigo-900/20">MODE COACH <span class="text-[8px] bg-white/20 px-1.5 py-0.5 rounded ml-2">BETA</span></button>
-            <button id="btn-local" class="w-full bg-slate-800 hover:bg-slate-700 text-white py-4 rounded-xl font-bold transition-all border border-slate-700 active:scale-[0.98]">DUEL LOCAL</button>
+            <button id="btn-ai" class="w-full flex items-center bg-blue-600 hover:bg-blue-500 p-2 pr-6 rounded-2xl font-bold text-white shadow-lg shadow-blue-900/40 active:scale-[0.98] transition-all group">
+              <div class="p-1 rounded-xl mr-4 group-hover:scale-110 transition-transform">
+                <img src="./assets/menu/offline_vs_ia.png" class="h-12 w-12 object-contain" alt="IA">
+              </div>
+              <span class="text-lg tracking-tight uppercase">Offline vs ia</span>
+            </button>
+
+            <button id="btn-coach" class="w-full flex items-center bg-indigo-600 hover:bg-indigo-500 p-2 pr-6 rounded-2xl font-bold text-white transition-all active:scale-[0.98] shadow-lg shadow-indigo-900/40 group">
+              <div class="p-1 rounded-xl mr-4 group-hover:scale-110 transition-transform">
+                <img src="./assets/menu/coach_ia.png" class="h-12 w-12 object-contain" alt="Coach">
+              </div>
+              <div class="text-left">
+                <span class="text-lg tracking-tight uppercase">Mode Coach</span>
+                <span class="text-[8px] bg-white/20 px-1.5 py-0.5 rounded ml-2 align-middle">BETA</span>
+              </div>
+            </button>
+
+            <button id="btn-local" class="w-full flex items-center bg-slate-800 hover:bg-slate-700 p-2 pr-6 rounded-2xl font-bold text-white transition-all active:scale-[0.98] border border-white/5 group">
+              <div class="p-1 mr-4 group-hover:scale-110 transition-transform">
+                <img src="./assets/menu/duel_local.png" class="h-10 w-10 object-contain" alt="Local">
+              </div>
+              <span class="text-base tracking-tight uppercase">Duel Local</span>
+            </button>
             
             <div class="relative py-4">
               <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-white/5"></div></div>
               <div class="relative flex justify-center text-xs uppercase font-bold text-slate-600"><span class="bg-slate-900 px-3 tracking-widest">MULTIJOUEUR</span></div>
             </div>
 
-            <button id="btn-create" class="w-full bg-slate-800 hover:bg-slate-700 text-white py-4 rounded-xl font-bold transition-all border border-slate-700 active:scale-[0.98]">CRÉER UN SALON</button>
+            <button id="btn-create" class="w-full flex items-center bg-slate-800 hover:bg-slate-700 p-2 pr-6 rounded-2xl font-bold text-white transition-all active:scale-[0.98] border border-white/5 group">
+               <div class="p-1 mr-4 group-hover:scale-110 transition-transform">
+                <img src="./assets/menu/salon.png" class="h-10 w-10 object-contain" alt="Salon">
+              </div>
+              <span class="text-base tracking-tight uppercase">Créer un salon</span>
+            </button>
             
-            <div class="flex flex-col sm:flex-row gap-2">
-              <input type="text" id="inputCode" placeholder="CODE SALON" class="w-full sm:flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-4 text-center font-mono font-bold text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500 transition-colors">
-              <button id="btn-join" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-xl font-bold transition-all active:scale-[0.98] shadow-lg shadow-emerald-900/10">REJOINDRE</button>
+            <div class="flex gap-2">
+              <div class="relative flex-1 group">
+                <div class="absolute left-3 top-1/2 -translate-y-1/2">
+                  <img src="./assets/menu/code_salon.png" class="h-8 w-8 object-contain opacity-50 group-focus-within:opacity-100 transition-opacity" alt="Code">
+                </div>
+                <input type="text" id="inputCode" placeholder="CODE SALON" class="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-14 pr-4 py-4 font-mono font-bold text-white placeholder:text-slate-800 focus:outline-none focus:border-blue-500 transition-colors">
+              </div>
+              <button id="btn-join" class="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-2xl font-bold transition-all active:scale-[0.98] shadow-lg shadow-emerald-900/20 uppercase text-sm">Rejoindre</button>
             </div>
           </div>
         </section>
@@ -91,11 +121,14 @@ export class MenuUI {
     this.attachEventListeners();
   }
 
-  renderVariantBtn(variant, label) {
+  renderVariantBtn(variant, label, iconSrc) {
     const isSelected = this.selectedVariant === variant;
     return `
-      <button data-variant="${variant}" class="variant-btn flex items-center justify-center p-3 sm:p-4 rounded-xl text-xs sm:text-sm font-bold transition-all border ${isSelected ? 'bg-blue-600/10 border-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.1)]' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-500'}">
-        ${label}
+      <button data-variant="${variant}" class="variant-btn flex items-center gap-3 p-3 sm:p-4 rounded-xl text-[10px] sm:text-xs font-bold transition-all border ${isSelected ? 'bg-blue-600/10 border-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.1)]' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-500'}">
+        <div class="shrink-0">
+          <img src="${iconSrc}" class="h-8 w-8 object-contain ${isSelected ? '' : 'opacity-50 grayscale'} transition-all" alt="${label}">
+        </div>
+        <span class="text-left leading-tight">${label}</span>
       </button>
     `;
   }
@@ -121,9 +154,19 @@ export class MenuUI {
         document.querySelectorAll('.variant-btn').forEach(b => {
           b.classList.remove('bg-blue-600/10', 'border-blue-500', 'text-white', 'shadow-[0_0_20px_rgba(59,130,246,0.1)]');
           b.classList.add('bg-slate-800/50', 'border-slate-700', 'text-slate-400');
+          // Reset icon opacity
+          const img = b.querySelector('img');
+          if (img) {
+            img.classList.add('opacity-50', 'grayscale');
+          }
         });
         target.classList.add('bg-blue-600/10', 'border-blue-500', 'text-white', 'shadow-[0_0_20px_rgba(59,130,246,0.1)]');
         target.classList.remove('bg-slate-800/50', 'border-slate-700', 'text-slate-400', 'hover:border-slate-500');
+        // Set active icon opacity
+        const targetImg = target.querySelector('img');
+        if (targetImg) {
+          targetImg.classList.remove('opacity-50', 'grayscale');
+        }
       });
     });
 
