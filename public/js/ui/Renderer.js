@@ -16,17 +16,17 @@ export class Renderer {
     const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
     const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
     const displayFiles = (game.playerColor === 'black') ? [...files].reverse() : files;
-    const displayRanks = (game.playerColor === 'black') ? [...ranks].reverse() : ranks;    
+    const displayRanks = (game.playerColor === 'black') ? [...ranks].reverse() : ranks;
 
     const boardCells = [];
-    const displayBoard = (game.playerColor === 'black') 
-      ? game.board.slice().reverse().map(r => r.slice().reverse()) 
+    const displayBoard = (game.playerColor === 'black')
+      ? game.board.slice().reverse().map(r => r.slice().reverse())
       : game.board;
-    
+
     displayBoard.forEach((row, rIdx) => {
       const actualR = (game.playerColor === 'black') ? 7 - rIdx : rIdx;
-      boardCells.push(`<div class="coord coord-row">${displayRanks[rIdx]}</div>`);
-      
+      boardCells.push(`<div class="coord flex items-center justify-center">${displayRanks[rIdx]}</div>`);
+
       row.forEach((piece, cIdx) => {
         const actualC = (game.playerColor === 'black') ? 7 - cIdx : cIdx;
         const isLight = (actualR + actualC) % 2 === 0;
@@ -34,22 +34,25 @@ export class Renderer {
         const isExplo = game.explosions.some(e => e[0] === actualR && e[1] === actualC);
         const isPossibleMove = validMoves.some(m => m[0] === actualR && m[1] === actualC);
         const hasPiece = piece !== null;
-        
-        // 🔥 MODIF BATTLE ROYALE : On détecte si la case est effondrée
+
         const isDeadZone = game.variant.isSquareCollapsed && game.variant.isSquareCollapsed(actualR, actualC);
-        
+
+        // Modern palette: Slate-200 (light) and Slate-600 (dark) or sophisticated Slate match
+        const lightColor = 'bg-[#f8fafc]'; // Slate-50
+        const darkColor = 'bg-[#cbd5e1]';  // Slate-300
+        const selColor = 'bg-blue-400/50';
+
         boardCells.push(`<div onclick="window.handleSquareClick(${actualR}, ${actualC})" 
-               class="relative w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center text-3xl sm:text-5xl cursor-pointer
-               ${isDeadZone ? 'bg-slate-900 border border-slate-800 opacity-80' : (isLight ? 'bg-[#eeeed2]' : 'bg-[#769656]')} 
-               ${isSel ? 'bg-[#f6f669]' : ''} 
-               ${isExplo ? 'bg-red-500 animate-pulse' : ''}">
+               class="relative aspect-square flex items-center justify-center text-3xl sm:text-5xl cursor-pointer transition-colors
+               ${isDeadZone ? 'bg-slate-900 border border-slate-800 opacity-40' : (isLight ? lightColor : darkColor)} 
+               ${isSel ? selColor : ''} 
+               ${isExplo ? 'bg-red-500 animate-pulse z-20' : ''}">
                
-               ${/* On cache les indicateurs de mouvement dans la zone morte */ ''}
-               ${!isDeadZone && isPossibleMove ? (hasPiece ? `<div class="capture-ring absolute"></div>` : `<div class="move-dot"></div>`) : ''}
+               ${!isDeadZone && isPossibleMove ? (hasPiece ? `<div class="capture-ring absolute z-30"></div>` : `<div class="move-dot z-30"></div>`) : ''}
                
                <span class="chess-piece relative z-10" 
-                     style="color: ${Board.isWhitePiece(piece) ? '#FFF' : '#000'}; 
-                     text-shadow: ${Board.isWhitePiece(piece) ? '0 0 2px #000, 0 0 5px rgba(0,0,0,0.5)' : 'none'};">
+                     style="color: ${Board.isWhitePiece(piece) ? '#FFF' : '#334155'}; 
+                     text-shadow: ${Board.isWhitePiece(piece) ? '0 2px 4px rgba(0,0,0,0.3), 0 0 2px rgba(0,0,0,0.5)' : 'none'};">
                   ${piece ? Board.pieceSymbols[piece] : ''}
                </span>
           </div>`);
@@ -57,15 +60,15 @@ export class Renderer {
     });
 
     boardCells.push(`<div></div>`);
-    displayFiles.forEach(f => boardCells.push(`<div class="coord coord-col">${f}</div>`));
+    displayFiles.forEach(f => boardCells.push(`<div class="coord flex items-center justify-center uppercase">${f}</div>`));
 
-    // Historique des coups
+    // Historique des coups - refined
     let historyHTML = "";
     for (let i = 0; i < game.moveHistory.length; i += 2) {
-      historyHTML += `<div class="flex border-b border-slate-700 py-1.5 text-xs sm:text-sm">
-          <span class="w-8 text-slate-500 font-mono">${Math.floor(i/2) + 1}.</span>
-          <span class="flex-1 font-bold text-white">${game.moveHistory[i]}</span>
-          <span class="flex-1 font-bold text-white">${game.moveHistory[i+1] || ""}</span>
+      historyHTML += `<div class="grid grid-cols-12 gap-2 border-b border-white/5 py-2 text-[11px] sm:text-xs font-medium">
+          <span class="col-span-2 text-slate-500 font-mono">${Math.floor(i / 2) + 1}.</span>
+          <span class="col-span-5 text-white">${game.moveHistory[i]}</span>
+          <span class="col-span-5 text-slate-300">${game.moveHistory[i + 1] || ""}</span>
         </div>`;
     }
 
@@ -73,85 +76,112 @@ export class Renderer {
     const blackTime = game.timer.blackTime;
     const whiteTimerClass = (whiteTime < 30 && game.currentPlayer === 'white') ? 'timer-warning' : '';
     const blackTimerClass = (blackTime < 30 && game.currentPlayer === 'black') ? 'timer-warning' : '';
-    
     const isGameWaiting = game.mode === 'online' && (!game.opponentConnected || game.moveHistory.length === 0);
 
     this.appElement.innerHTML = `
-      <div class="min-h-screen bg-slate-900 text-white p-2 sm:p-4 flex flex-col items-center">
+      <div class="h-screen bg-slate-950 text-white flex flex-col font-sans overflow-hidden">
         
-        <div class="mb-4 w-full max-w-[350px] lg:w-72 bg-slate-800 rounded-xl p-3 shadow-xl">
-          <div class="flex justify-between items-center mb-2">
-            <span class="text-sm ${game.currentPlayer === 'black' ? 'text-yellow-400 font-bold' : 'text-slate-400'}">⚫ NOIRS</span>
-            <span class="text-2xl font-mono font-bold ${blackTimerClass}">${isGameWaiting && game.currentPlayer === 'black' ? '...' : Timer.formatTime(blackTime)}</span>
+        <!-- Header Info (Mobile Friendly) -->
+        <div class="p-4 flex justify-between items-center glass-panel border-b border-white/5 shrink-0">
+          <div class="flex items-center gap-4">
+             <button onclick="location.reload()" class="p-2 hover:bg-slate-800 rounded-lg transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+             </button>
+             <h2 class="text-sm font-black uppercase tracking-widest text-slate-400">
+               ${game.gameOver ? 'PARTIE TERMINÉE' : (game.variant.constructor.name.replace('Variant', ''))}
+             </h2>
           </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm ${game.currentPlayer === 'white' ? 'text-yellow-400 font-bold' : 'text-slate-400'}">⚪ BLANCS</span>
-            <span class="text-2xl font-mono font-bold ${whiteTimerClass}">${isGameWaiting && game.currentPlayer === 'white' ? 'En attente' : Timer.formatTime(whiteTime)}</span>
-          </div>
-        </div>
-        
-        <div class="mb-4 text-center">
-          <h2 class="text-xl sm:text-2xl font-bold uppercase tracking-widest ${game.currentPlayer === 'white' ? 'text-white' : 'text-slate-400'}">
-            ${game.gameOver ? 'Fin de partie' : (game.currentPlayer === 'white' ? 'Blancs' : 'Noirs')}
-          </h2>
-        </div>
-        
-        <div class="flex flex-col lg:flex-row gap-6 items-center lg:items-start">
-          <div id="chess-grid" class="grid grid-cols-[20px_repeat(8,1fr)] bg-slate-800 p-1 border-2 border-slate-700 shadow-2xl rounded-sm">
-            ${boardCells.join('')}
-          </div>
-
-          <div class="w-full max-w-[350px] lg:w-72 bg-slate-800 rounded-xl p-4 shadow-xl flex flex-col h-[200px] lg:h-[512px]">
-            <h3 class="font-bold border-b border-slate-600 pb-2 mb-2 flex justify-between items-center">
-              <span>📜 HISTORIQUE</span>
-              <span class="text-[10px] bg-slate-700 px-2 py-0.5 rounded">${game.moveHistory.length}</span>
-            </h3>
-            <div class="history-scroll overflow-y-auto flex-1 pr-1">${game.moveHistory.length === 0 ? '<p class="text-slate-500 text-center mt-10">Début de partie</p>' : historyHTML}</div>
-          </div>
+          ${gameCode ? `<div class="bg-blue-600/10 border border-blue-500/20 px-3 py-1 rounded-full text-[10px] font-black text-blue-400">CODE: ${gameCode}</div>` : ''}
         </div>
 
-        <div class="mt-6 flex gap-4">
-          <button onclick="location.reload()" class="bg-slate-700 px-6 py-2 rounded-lg hover:bg-slate-600 transition text-sm">MENU</button>
-          ${gameCode ? `<div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-600 text-sm">CODE: <span class="text-yellow-400 font-mono">${gameCode}</span></div>` : ''}
+        <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+          
+          <!-- Game Board Area -->
+          <div class="flex-1 flex flex-col items-center justify-center p-2 sm:p-6 overflow-hidden">
+            
+            <!-- Opponent info -->
+            <div class="w-full max-w-[min(90vw,512px)] flex justify-between items-end mb-4 px-2">
+               <div class="flex flex-col">
+                 <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${game.playerColor === 'white' ? 'Adversaire' : 'Vous'}</span>
+                 <span class="text-xs font-black uppercase ${game.currentPlayer === 'black' ? 'text-blue-400' : 'text-white'}">NOIRS</span>
+               </div>
+               <div class="text-3xl font-mono font-bold tracking-tight ${blackTimerClass}">
+                 ${isGameWaiting && game.currentPlayer === 'black' ? '...' : Timer.formatTime(blackTime)}
+               </div>
+            </div>
+
+            <!-- Board Container -->
+            <div id="chess-grid" class="w-full max-w-[min(90vw,512px)] grid grid-cols-[20px_repeat(8,1fr)] bg-slate-800 p-0.5 border border-white/10 shadow-2xl rounded-sm">
+              ${boardCells.join('')}
+            </div>
+
+            <!-- Player info -->
+            <div class="w-full max-w-[min(90vw,512px)] flex justify-between items-start mt-4 px-2">
+               <div class="text-3xl font-mono font-bold tracking-tight ${whiteTimerClass}">
+                 ${isGameWaiting && game.currentPlayer === 'white' ? 'Wait' : Timer.formatTime(whiteTime)}
+               </div>
+               <div class="flex flex-col items-end">
+                 <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${game.playerColor === 'white' ? 'Vous' : 'Adversaire'}</span>
+                 <span class="text-xs font-black uppercase ${game.currentPlayer === 'white' ? 'text-blue-400' : 'text-white'}">BLANCS</span>
+               </div>
+            </div>
+
+          </div>
+
+          <!-- Sidepanel (History) -->
+          <div class="w-full lg:w-80 bg-slate-900/50 border-t lg:border-t-0 lg:border-l border-white/5 flex flex-col shrink-0">
+             <div class="p-4 border-b border-white/5 flex justify-between items-center">
+                <h3 class="text-xs font-black uppercase tracking-widest text-slate-500 italic">LOG DE COMBAT</h3>
+                <span class="text-[9px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-mono">${game.moveHistory.length} MOVES</span>
+             </div>
+             <div class="history-scroll overflow-y-auto flex-1 p-4 lg:max-h-full max-h-[150px]">
+                ${game.moveHistory.length === 0 ? '<div class="h-full flex flex-col items-center justify-center opacity-20"><span class="text-5xl mb-4">♟️</span><p class="text-[10px] font-black uppercase tracking-[0.2em]">En attente du premier coup</p></div>' : historyHTML}
+             </div>
+          </div>
+
         </div>
-        
+
         ${game.gameOver ? this.renderGameOverModal(game) : ''}
       </div>`;
-      
+
     const historyDiv = document.querySelector('.history-scroll');
     if (historyDiv) historyDiv.scrollTop = historyDiv.scrollHeight;
   }
 
-/**
+  /**
    * Rend le modal de fin de partie
    */
   renderGameOverModal(game) {
     const whiteTime = game.timer.whiteTime;
     const blackTime = game.timer.blackTime;
     const isTimeout = whiteTime === 0 || blackTime === 0;
-    
-    // Détermine le message selon la variante et la raison de la victoire
+
+    let winTitle = '';
     let winMessage = '';
+
     if (game.gameOver === 'draw') {
+      winTitle = 'ÉGALITÉ';
       winMessage = 'Pat ! Match nul !';
     } else {
-      // Vérifie si c'est une victoire King of the Hill
+      winTitle = game.gameOver === 'white' ? 'BLANCS GAGNENT' : 'NOIRS GAGNENT';
       if (game.variant && game.variant.isKingOnHill && game.variant.isKingOnHill(game.board, game.gameOver)) {
-        winMessage = game.gameOver === 'white' 
-          ? 'Le Roi blanc atteint la colline ! 🏔️' 
-          : 'Le Roi noir atteint la colline ! 🏔️';
+        winMessage = 'Le Roi a atteint la colline ! 🏔️';
       } else {
-        // Victoire par échec et mat
-        winMessage = game.gameOver === 'white' 
-          ? 'Échec et mat ! Les Blancs gagnent ! ♔' 
-          : 'Échec et mat ! Les Noirs gagnent ! ♔';
+        winMessage = isTimeout ? 'Temps écoulé !' : 'Échec et mat ! ♔';
       }
     }
-    
-    return `<div class="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 p-6 text-center">
-       <h1 class="text-5xl font-black text-white mb-2">${game.gameOver === 'draw' ? 'ÉGALITÉ' : (game.gameOver === 'white' ? 'BLANCS GAGNENT' : 'NOIRS GAGNENT')}</h1>
-       <p class="text-yellow-500 text-2xl font-bold mb-8 italic">${isTimeout ? 'Temps écoulé !' : winMessage}</p>
-       <button onclick="location.reload()" class="bg-blue-600 text-white px-12 py-4 rounded-full font-bold text-xl hover:scale-110 transition shadow-lg">REJOUER</button>
+
+    return `
+    <div class="fixed inset-0 bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-center z-[100] p-6 text-center animate-in fade-in duration-500">
+       <div class="glass-panel p-10 rounded-[2rem] border border-white/10 shadow-3xl max-w-sm w-full">
+         <h1 class="text-4xl font-black text-white mb-2 tracking-tighter uppercase">${winTitle}</h1>
+         <p class="text-blue-400 text-lg font-bold mb-8 uppercase tracking-widest text-[10px]">${winMessage}</p>
+         
+         <div class="space-y-3">
+           <button onclick="location.reload()" class="w-full btn-primary text-white py-4 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-transform">REJOUER</button>
+           <button onclick="location.reload()" class="w-full bg-slate-800 text-slate-400 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-slate-700 transition-colors">MENU PRINCIPAL</button>
+         </div>
+       </div>
     </div>`;
   }
 
