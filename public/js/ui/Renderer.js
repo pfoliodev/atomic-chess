@@ -169,6 +169,17 @@ export class Renderer {
 
           <!-- Sidepanel (History) -->
           <div class="w-full lg:w-80 bg-slate-900/50 border-t lg:border-t-0 lg:border-l border-white/5 flex flex-col shrink-0">
+             ${game.mode === 'coach' ? `
+             <div class="p-4 border-b border-indigo-500/30 bg-indigo-600/5 ${game.coachFeedback && game.coachFeedback.includes('ALERTE') ? 'critical-alert' : ''}">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="w-2 h-2 ${game.coachFeedback && game.coachFeedback.includes('ALERTE') ? 'bg-red-500' : 'bg-indigo-500'} rounded-full animate-pulse"></span>
+                  <h3 class="text-[10px] font-black uppercase tracking-[0.2em] ${game.coachFeedback && game.coachFeedback.includes('ALERTE') ? 'text-red-400' : 'text-indigo-400'}">ANALYSE DU COACH</h3>
+                </div>
+                <div id="coach-message" class="text-indigo-100 text-xs font-medium leading-relaxed min-h-[3em]">
+                  ${game.coachFeedback || "En attente de votre premier coup..."}
+                </div>
+             </div>
+             ` : ''}
              <div class="p-4 border-b border-white/5 flex justify-between items-center">
                 <h3 class="text-xs font-black uppercase tracking-widest text-slate-500 italic">LOG DE COMBAT</h3>
                 <span class="text-[9px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-mono">${game.moveHistory.length} MOVES</span>

@@ -8,6 +8,7 @@ import { Renderer } from './ui/Renderer.js';
 import { MenuUI } from './ui/MenuUI.js';
 import { FirebaseSync } from './network/FirebaseSync.js';
 import { StockfishEngine } from './engine/StockfishEngine.js';
+import { CoachAnalyzer } from './engine/CoachAnalyzer.js';
 
 /**
  * Application principale
@@ -19,6 +20,7 @@ class App {
     this.menuUI = new MenuUI('app');
     this.firebaseSync = null;
     this.engine = new StockfishEngine();
+    this.coach = new CoachAnalyzer();
     this.currentMode = 'menu';
     this.gameCode = null;
 
@@ -75,6 +77,7 @@ class App {
     // Configure les callbacks du menu
     this.menuUI.onStartLocal = (timeControl, variant) => this.startLocalGame(timeControl, variant);
     this.menuUI.onStartAI = (timeControl, variant, level) => this.startAIGame(timeControl, variant, level);
+    this.menuUI.onStartCoach = (timeControl, variant, level) => this.startCoachGame(timeControl, variant, level);
     this.menuUI.onCreateOnline = (timeControl, variant) => this.createOnlineGame(timeControl, variant);
     this.menuUI.onJoinOnline = (code) => this.joinOnlineGame(code);
   }
@@ -129,6 +132,38 @@ class App {
       const to = Board.fromAlgebraic(uciMove.substring(2, 4));
 
       // Temporisation pour simuler la réflexion et laisser le temps de voir le coup
+      setTimeout(() => {
+        this.game.executeMove(from, to);
+      }, 500);
+    };
+
+    this.setupGameCallbacks();
+    this.game.startTimer();
+    this.renderer.renderGame(this.game);
+  }
+
+  /**
+   * Démarre une partie en mode Coach
+   */
+  async startCoachGame(timeControl, variantName, level) {
+    const variant = this.createVariant(variantName);
+    this.game = new Game(variant, 'coach', timeControl);
+    this.game.playerColor = 'white';
+    this.game.variantId = variantName; // Stocker l'ID (chaîne) pour le coach
+    this.currentMode = 'coach';
+
+    // Initialise le moteur
+    this.engine.setVariant(variantName);
+    this.engine.setDifficulty(level);
+    await this.engine.init();
+
+    // Reset coach state
+    this.coach.setBaseEvaluation({ type: 'cp', value: 0 });
+
+    this.engine.onMoveFound = (uciMove) => {
+      const from = Board.fromAlgebraic(uciMove.substring(0, 2));
+      const to = Board.fromAlgebraic(uciMove.substring(2, 4));
+
       setTimeout(() => {
         this.game.executeMove(from, to);
       }, 500);
@@ -206,21 +241,53 @@ class App {
     this.game.onMove = async (state) => {
       if (this.currentMode === 'online' && this.firebaseSync) {
         await this.firebaseSync.updateGame(state);
-      } else if (this.currentMode === 'ai' && this.game.currentPlayer === 'black') {
-        // Calcul du numéro du coup (commence à 1)
-        // moveHistory contient tous les coups (blancs et noirs).
-        // 0 coups -> fullMove 1
-        // 1 coup (blanc) -> fullMove 1
-        // 2 coups (blanc, noir) -> fullMove 2
+      } else if ((this.currentMode === 'ai' || this.currentMode === 'coach') && this.game.currentPlayer === 'black') {
         const fullMove = Math.floor(this.game.moveHistory.length / 2) + 1;
 
-        // Passer info Battle Royale
         if (this.game.variant.collapsedRings !== undefined) {
           this.engine.collapsedRings = this.game.variant.collapsedRings;
         }
 
         const fen = Board.toFEN(this.game.board, this.game.currentPlayer, this.game.variant, fullMove);
+
+        // Si on est en mode coach, on attend la nouvelle évaluation avant de donner un feedback
+        if (this.currentMode === 'coach') {
+          // On définit un callback temporaire pour l'évaluation
+          this.engine.onEvaluation = (evaluation) => {
+            const context = {
+              board: this.game.board,
+              variant: this.game.variantId,
+              playerColor: 'white',
+              collapsedRings: this.game.variant.collapsedRings || 0,
+              lastMove: this.game.moveHistory.length > 0 ? this.game.moveHistory[this.game.moveHistory.length - 1] : null
+            };
+            const feedback = this.coach.analyze(evaluation, 'white', context);
+            this.game.coachFeedback = feedback;
+            this.renderer.renderGame(this.game);
+
+            // On désactive le callback après la première évaluation pour ce coup
+            this.engine.onEvaluation = null;
+          };
+        }
+
         this.engine.getBestMove(fen);
+      } else if (this.currentMode === 'coach' && this.game.currentPlayer === 'white') {
+        // L'IA (Noirs) vient de jouer, on vérifie si elle a créé une menace
+        const context = {
+          board: this.game.board,
+          variant: this.game.variantId,
+          playerColor: 'white',
+          collapsedRings: this.game.variant.collapsedRings || 0,
+          lastMove: this.game.moveHistory.length > 0 ? this.game.moveHistory[this.game.moveHistory.length - 1] : null
+        };
+
+        // On analyse du point de vue de l'IA (le coup qui vient d'être fait)
+        // en mode "menaces uniquement" si c'est possible, ou en filtrant les messages positifs
+        const feedback = this.coach.analyze(this.engine.currentEvaluation, 'black', context, true);
+        if (feedback) {
+          this.game.coachFeedback = feedback;
+          this.renderer.renderGame(this.game);
+        }
       }
     };
 

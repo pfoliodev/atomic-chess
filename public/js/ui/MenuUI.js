@@ -8,6 +8,7 @@ export class MenuUI {
     this.selectedVariant = 'atomic';
     this.onStartLocal = null;
     this.onStartAI = null;
+    this.onStartCoach = null;
     this.onCreateOnline = null;
     this.onJoinOnline = null;
     this.selectedLevel = 1;
@@ -64,6 +65,7 @@ export class MenuUI {
           <!-- Main Actions -->
           <div class="space-y-3 pt-4 border-t border-white/5">
             <button id="btn-ai" class="w-full btn-primary py-4 rounded-xl font-bold text-white shadow-lg shadow-blue-900/20 active:scale-[0.98]">OFFLINE VS IA</button>
+            <button id="btn-coach" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-xl font-bold transition-all border border-indigo-500 active:scale-[0.98] shadow-lg shadow-indigo-900/20">MODE COACH <span class="text-[8px] bg-white/20 px-1.5 py-0.5 rounded ml-2">BETA</span></button>
             <button id="btn-local" class="w-full bg-slate-800 hover:bg-slate-700 text-white py-4 rounded-xl font-bold transition-all border border-slate-700 active:scale-[0.98]">DUEL LOCAL</button>
             
             <div class="relative py-4">
@@ -145,6 +147,16 @@ export class MenuUI {
       btnAI.addEventListener('click', () => {
         if (this.onStartAI) {
           this.onStartAI(this.selectedTimeControl, this.selectedVariant, this.selectedLevel);
+        }
+      });
+    }
+
+    // Bouton Coach
+    const btnCoach = document.getElementById('btn-coach');
+    if (btnCoach) {
+      btnCoach.addEventListener('click', () => {
+        if (this.onStartCoach) {
+          this.onStartCoach(this.selectedTimeControl, this.selectedVariant, this.selectedLevel);
         }
       });
     }

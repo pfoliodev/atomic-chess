@@ -144,6 +144,8 @@ export class Game {
     this.board = result.board;
     this.explosions = result.explosionSquares;
     this.moveHistory.push({
+      from,
+      to,
       notation: result.moveNotation,
       board: Board.clone(this.board)
     });

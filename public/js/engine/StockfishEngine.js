@@ -11,6 +11,8 @@ export class StockfishEngine {
         this.candidateMoves = []; // Stocke les coups potentiels (MultiPV)
         this.collapsedRings = 0; // Pour Battle Royale
         this.currentFen = null; // FEN actuel pour validation
+        this.currentEvaluation = { type: 'cp', value: 0 };
+        this.onEvaluation = null; // Nouveau callback
 
         // Skill levels Stockfish correspondants (0-20)
         this.skillLevels = [0, 2, 5, 8, 12, 15, 18, 20];
@@ -20,8 +22,10 @@ export class StockfishEngine {
      * Initialise le moteur
      */
     async init() {
+        if (this.worker) {
+            this.worker.terminate();
+        }
         return new Promise((resolve) => {
-            // Utilisation du script local pour éviter les problèmes de CORS avec les Workers
             this.worker = new Worker('./js/engine/stockfish.js');
 
             this.worker.onmessage = (e) => {
@@ -42,24 +46,34 @@ export class StockfishEngine {
                     resolve();
                 }
 
-                // Parsing des coups candidats (MultiPV)
-                // Ex: info depth 10 ... multipv 1 ... pv e2e4 ...
-                if (line.startsWith('info') && line.includes('pv')) {
+                // Parsing des infos du moteur (score, profondeur, etc.)
+                if (line.startsWith('info')) {
                     const parts = line.split(' ');
-                    const pvIndex = parts.indexOf('pv');
-                    if (pvIndex !== -1 && pvIndex + 1 < parts.length) {
-                        const move = parts[pvIndex + 1];
-                        // On ajoute en haut de pile (les meilleurs coups arrivent en dernier ou sont mis à jour)
-                        // Simple : on stocke tout, on triera/filtrera à la fin.
-                        // Mieux : on détecte le "multipv X"
-                        const multipvIndex = parts.indexOf('multipv');
-                        if (multipvIndex !== -1) {
-                            const rank = parseInt(parts[multipvIndex + 1]);
-                            // On remplace ou ajoute
-                            this.candidateMoves[rank - 1] = move;
-                        } else {
-                            // Si pas de multipv explicit (mode normal), c'est le meilleur
-                            this.candidateMoves[0] = move;
+
+                    // Parsing du score (prioritaire pour le coach)
+                    const scoreIndex = parts.indexOf('score');
+                    if (scoreIndex !== -1) {
+                        const type = parts[scoreIndex + 1]; // 'cp' or 'mate'
+                        const value = parseInt(parts[scoreIndex + 2]);
+                        this.currentEvaluation = { type, value };
+
+                        if (this.onEvaluation) {
+                            this.onEvaluation(this.currentEvaluation);
+                        }
+                    }
+
+                    // Parsing des coups candidats (MultiPV) s'ils sont présents
+                    if (line.includes('pv')) {
+                        const pvIndex = parts.indexOf('pv');
+                        if (pvIndex !== -1 && pvIndex + 1 < parts.length) {
+                            const move = parts[pvIndex + 1];
+                            const multipvIndex = parts.indexOf('multipv');
+                            if (multipvIndex !== -1) {
+                                const rank = parseInt(parts[multipvIndex + 1]);
+                                this.candidateMoves[rank - 1] = move;
+                            } else {
+                                this.candidateMoves[0] = move;
+                            }
                         }
                     }
                 }
@@ -68,7 +82,7 @@ export class StockfishEngine {
                     let bestMove = line.split(' ')[1];
 
                     // Filtrage Battle Royale et Validation FEN
-                    if (this.variant === 'kingofthehill' && this.collapsedRings > 0 && this.currentFen) {
+                    if (this.variant === 'battleroyale' && this.collapsedRings > 0 && this.currentFen) {
                         // console.log('Filtrage Battle Royale. Candidats:', this.candidateMoves);
 
                         // Parse FEN to verify pieces
