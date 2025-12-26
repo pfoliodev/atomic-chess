@@ -29,6 +29,15 @@ export class Board {
   }
 
   /**
+   * Convertit une notation algébrique en coordonnées [row, col]
+   */
+  static fromAlgebraic(square) {
+    const col = square.charCodeAt(0) - 'a'.charCodeAt(0);
+    const row = 8 - parseInt(square[1]);
+    return [row, col];
+  }
+
+  /**
    * Trouve la position du roi d'une couleur donnée
    */
   static findKing(board, color) {
@@ -51,7 +60,7 @@ export class Board {
     const cStep = Math.sign(tC - fC);
     let currR = fR + rStep;
     let currC = fC + cStep;
-    
+
     while (currR !== tR || currC !== tC) {
       if (board[currR][currC]) return false;
       currR += rStep;
@@ -90,5 +99,79 @@ export class Board {
       board.push(flatBoard.slice(i * 8, (i + 1) * 8));
     }
     return board;
+  }
+
+  /**
+   * Génère une chaîne FEN pour le plateau actuel
+   */
+  static toFEN(board, turn, variant, fullMove = 1) {
+    let fen = '';
+
+    // 1. Position des pièces
+    for (let r = 0; r < 8; r++) {
+      let empty = 0;
+      for (let c = 0; c < 8; c++) {
+        const piece = board[r][c];
+        if (piece) {
+          if (empty > 0) {
+            fen += empty;
+            empty = 0;
+          }
+          fen += piece;
+        } else {
+          empty++;
+        }
+      }
+      if (empty > 0) fen += empty;
+      if (r < 7) fen += '/';
+    }
+
+    // 2. Trait
+    fen += ` ${turn[0]}`;
+
+    // 3. Flags (Roque et EP)
+    const flags = variant.getFENFlags();
+    fen += ` ${flags.castling} ${flags.enPassant}`;
+
+    // 4. Halfmove et Fullmove
+    // Halfmove (50 moves rule) on simplifie à 0 pour l'instant
+    fen += ` 0 ${fullMove}`;
+
+    return fen;
+  }
+
+  /**
+   * Retourne la liste des pièces éliminées pour chaque camp
+   */
+  static getEliminatedPieces(board) {
+    const initialCounts = {
+      'P': 8, 'N': 2, 'B': 2, 'R': 2, 'Q': 1, 'K': 1,
+      'p': 8, 'n': 2, 'b': 2, 'r': 2, 'q': 1, 'k': 1
+    };
+
+    const currentCounts = {};
+    board.flat().forEach(piece => {
+      if (piece) {
+        currentCounts[piece] = (currentCounts[piece] || 0) + 1;
+      }
+    });
+
+    const eliminated = { white: [], black: [] };
+    for (const [piece, count] of Object.entries(initialCounts)) {
+      const missing = count - (currentCounts[piece] || 0);
+      if (missing > 0) {
+        for (let i = 0; i < missing; i++) {
+          if (Board.isWhitePiece(piece)) eliminated.white.push(piece);
+          else eliminated.black.push(piece);
+        }
+      }
+    }
+
+    // Tri pour un affichage plus propre (Pions, Cavaliers, Fous, Tours, Dames)
+    const order = { 'P': 1, 'N': 2, 'B': 3, 'R': 4, 'Q': 5, 'K': 6, 'p': 1, 'n': 2, 'b': 3, 'r': 4, 'q': 5, 'k': 6 };
+    eliminated.white.sort((a, b) => order[a] - order[b]);
+    eliminated.black.sort((a, b) => order[a] - order[b]);
+
+    return eliminated;
   }
 }
