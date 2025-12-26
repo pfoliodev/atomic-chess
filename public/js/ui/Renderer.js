@@ -104,12 +104,12 @@ export class Renderer {
             
             <!-- Opponent info -->
             <div class="w-full max-w-[min(90vw,512px)] flex justify-between items-end mb-4 px-2">
-               <div class="flex flex-col">
+               <div class="flex flex-col min-h-[48px] justify-end">
                  <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${game.playerColor === 'white' ? 'Adversaire' : 'Vous'}</span>
                  <div class="flex items-center gap-2">
                    <span class="text-xs font-black uppercase ${game.currentPlayer === 'black' ? 'text-blue-400' : 'text-white'}">NOIRS</span>
-                   <div class="flex flex-wrap gap-0.5 opacity-70">
-                     ${eliminated.white.map(p => `<span class="text-[14px]" style="color: #FFFFFF; text-shadow: 0 1px 2px rgba(0,0,0,0.5)">${Board.pieceSymbols[p]}</span>`).join('')}
+                   <div class="flex flex-wrap gap-1 opacity-80 max-w-[120px] sm:max-w-none">
+                     ${eliminated.white.map(p => `<span class="text-[16px] leading-none" style="color: #FFFFFF; text-shadow: 0 1px 2px rgba(0,0,0,0.5)">${Board.pieceSymbols[p]}</span>`).join('')}
                    </div>
                  </div>
                </div>
@@ -123,17 +123,37 @@ export class Renderer {
               ${boardCells.join('')}
             </div>
 
+            <!-- Review Navigation Controls -->
+            ${isGameOver ? `
+            <div class="w-full max-w-[min(90vw,512px)] flex justify-center items-center gap-6 mt-6 py-3 glass-panel rounded-xl border border-white/5 shadow-lg">
+              <button onclick="window.handleReviewMove(-2)" class="nav-btn p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
+              </button>
+              <button onclick="window.handleReviewMove(-1)" class="nav-btn p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <span class="text-xs font-bold text-slate-500 uppercase tracking-widest min-w-[60px] text-center">
+                ${game.reviewIndex === -1 ? 'LIVE' : `COUP ${game.reviewIndex + 1}`}
+              </span>
+              <button onclick="window.handleReviewMove(1)" class="nav-btn p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+              </button>
+              <button onclick="window.handleReviewMove(2)" class="nav-btn p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
+              </button>
+            </div>` : ''}
+
             <!-- Player info -->
             <div class="w-full max-w-[min(90vw,512px)] flex justify-between items-start mt-4 px-2">
                <div class="text-3xl font-mono font-bold tracking-tight ${whiteTimerClass}">
                  ${isGameWaiting && game.currentPlayer === 'white' ? 'Wait' : Timer.formatTime(whiteTime)}
                </div>
-               <div class="flex flex-col items-end text-right">
+               <div class="flex flex-col items-end text-right min-h-[48px] justify-start">
                  <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${game.playerColor === 'white' ? 'Vous' : 'Adversaire'}</span>
                  <div class="flex items-center gap-2 flex-row-reverse">
                    <span class="text-xs font-black uppercase ${game.currentPlayer === 'white' ? 'text-blue-400' : 'text-white'}">BLANCS</span>
-                   <div class="flex flex-wrap gap-0.5 opacity-70">
-                     ${eliminated.black.map(p => `<span class="text-[14px]" style="color: #0f172a; text-shadow: 0 1px 1px rgba(255,255,255,0.2)">${Board.pieceSymbols[p]}</span>`).join('')}
+                   <div class="flex flex-wrap gap-1 opacity-80 max-w-[120px] sm:max-w-none flex-row-reverse">
+                     ${eliminated.black.map(p => `<span class="text-[16px] leading-none" style="color: #020617; text-shadow: 0 1px 1px rgba(255,255,255,0.2)">${Board.pieceSymbols[p]}</span>`).join('')}
                    </div>
                  </div>
                </div>
@@ -185,14 +205,14 @@ export class Renderer {
     }
 
     return `
-    <div class="fixed inset-0 bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-center z-[100] p-6 text-center animate-in fade-in duration-500">
-       <div class="glass-panel p-10 rounded-[2rem] border border-white/10 shadow-3xl max-w-sm w-full">
-         <h1 class="text-4xl font-black text-white mb-2 tracking-tighter uppercase">${winTitle}</h1>
-         <p class="text-blue-400 text-lg font-bold mb-8 uppercase tracking-widest text-[10px]">${winMessage}</p>
+    <div class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] w-full max-w-sm px-6 animate-in slide-in-from-bottom duration-500">
+       <div class="glass-panel p-8 rounded-3xl border border-white/10 shadow-3xl text-center bg-slate-900/80 backdrop-blur-2xl">
+         <h1 class="text-2xl font-black text-white mb-1 tracking-tighter uppercase">${winTitle}</h1>
+         <p class="text-blue-400 text-xs font-bold mb-6 uppercase tracking-widest">${winMessage}</p>
          
-         <div class="space-y-3">
-           <button onclick="location.reload()" class="w-full btn-primary text-white py-4 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-transform">REJOUER</button>
-           <button onclick="location.reload()" class="w-full bg-slate-800 text-slate-400 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-slate-700 transition-colors">MENU PRINCIPAL</button>
+         <div class="flex gap-2">
+           <button onclick="location.reload()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all">REJOUER</button>
+           <button onclick="location.reload()" class="flex-1 bg-slate-800 text-slate-400 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-slate-700 transition-colors">MENU</button>
          </div>
        </div>
     </div>`;

@@ -14,6 +14,7 @@ export class Game {
     this.explosions = [];
     this.gameOver = null;
     this.moveHistory = [];
+    this.reviewIndex = -1; // -1 means live game, >= 0 means reviewing history
     this.playerColor = null; // Pour le mode online
     this.opponentConnected = false;
 
@@ -142,7 +143,11 @@ export class Game {
 
     this.board = result.board;
     this.explosions = result.explosionSquares;
-    this.moveHistory.push(result.moveNotation);
+    this.moveHistory.push({
+      notation: result.moveNotation,
+      board: Board.clone(this.board)
+    });
+    this.reviewIndex = -1;
     this.currentPlayer = this.currentPlayer === 'white' ? 'black' : 'white';
     this.selectedSquare = null;
     this.timer.lastTimerUpdate = Date.now();
@@ -247,7 +252,25 @@ export class Game {
     this.gameOver = null;
     this.moveHistory = [];
     this.timer.reset(600, 600);
+    this.reviewIndex = -1;
     if (this.onStateChange) this.onStateChange();
+  }
+
+  /**
+   * Navigue dans l'historique (mode analyse)
+   */
+  setReviewIndex(index) {
+    if (!this.gameOver || index < -1 || index >= this.moveHistory.length) return;
+    this.reviewIndex = index;
+    if (this.onStateChange) this.onStateChange();
+  }
+
+  /**
+   * Récupère le plateau actuel (live ou historique)
+   */
+  getDisplayBoard() {
+    if (this.reviewIndex === -1) return this.board;
+    return this.moveHistory[this.reviewIndex].board;
   }
 
   /**
