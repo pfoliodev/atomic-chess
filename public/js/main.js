@@ -285,5 +285,24 @@ class App {
 // Initialise l'application
 const app = new App();
 
-// Expose handleSquareClick globalement pour les événements onclick
+// Expose les fonctions globalement pour les événements onclick
 window.handleSquareClick = (row, col) => app.handleSquareClick(row, col);
+
+window.handleReviewMove = (dir) => {
+  if (!app.game) return;
+  let newIndex = app.game.reviewIndex;
+  const history = app.game.moveHistory;
+
+  if (dir === -2) newIndex = 0; // Début
+  else if (dir === 2) newIndex = history.length - 1; // Fin
+  else if (dir === -1) newIndex = (newIndex === -1) ? history.length - 1 : Math.max(0, newIndex - 1);
+  else if (dir === 1) newIndex = (newIndex === -1 || newIndex === history.length - 1) ? -1 : newIndex + 1;
+
+  app.game.setReviewIndex(newIndex);
+};
+
+window.handleHideGameOver = () => {
+  if (!app.renderer) return;
+  app.renderer.hideGameOver = true;
+  app.renderer.renderGame(app.game, app.gameCode);
+};

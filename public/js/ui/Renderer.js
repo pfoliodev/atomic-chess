@@ -6,6 +6,7 @@ import { Timer } from '../core/Timer.js';
 export class Renderer {
   constructor(appElementId = 'app') {
     this.appElement = document.getElementById(appElementId);
+    this.hideGameOver = false;
   }
 
   /**
@@ -109,16 +110,16 @@ export class Renderer {
             
             <!-- Opponent info -->
             <div class="w-full max-w-[min(90vw,512px)] flex justify-between items-end mb-4 px-2">
-               <div class="flex flex-col min-h-[48px] justify-end">
+               <div class="flex-1 flex flex-col min-h-[48px] justify-end overflow-hidden">
                  <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${game.playerColor === 'white' ? 'Adversaire' : 'Vous'}</span>
                  <div class="flex items-center gap-2">
                    <span class="text-xs font-black uppercase ${game.currentPlayer === 'black' ? 'text-blue-400' : 'text-white'}">NOIRS</span>
-                   <div class="flex flex-wrap gap-1 opacity-80 max-w-[120px] sm:max-w-none">
-                     ${eliminated.white.map(p => `<span class="text-[16px] leading-none" style="color: #FFFFFF; text-shadow: 0 1px 2px rgba(0,0,0,0.5)">${Board.pieceSymbols[p]}</span>`).join('')}
+                   <div class="flex flex-wrap gap-1 opacity-80 overflow-hidden">
+                     ${eliminated.white.map(p => `<span class="text-[16px] sm:text-[18px] leading-none" style="color: #FFFFFF; text-shadow: 0 1px 2px rgba(0,0,0,0.5)">${Board.pieceSymbols[p]}</span>`).join('')}
                    </div>
                  </div>
                </div>
-               <div class="text-3xl font-mono font-bold tracking-tight ${blackTimerClass}">
+               <div class="text-3xl font-mono font-bold tracking-tight ${blackTimerClass} shrink-0 ml-4">
                  ${isGameWaiting && game.currentPlayer === 'black' ? '...' : Timer.formatTime(blackTime)}
                </div>
             </div>
@@ -131,34 +132,34 @@ export class Renderer {
             <!-- Review Navigation Controls -->
             ${isGameOver ? `
             <div class="w-full max-w-[min(90vw,512px)] flex justify-center items-center gap-6 mt-6 py-3 glass-panel rounded-xl border border-white/5 shadow-lg">
-              <button onclick="window.handleReviewMove(-2)" class="nav-btn p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white">
+              <button onclick="window.handleReviewMove(-2)" class="nav-btn p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white">
                 <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
               </button>
-              <button onclick="window.handleReviewMove(-1)" class="nav-btn p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white">
+              <button onclick="window.handleReviewMove(-1)" class="nav-btn p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white">
                 <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
               </button>
               <span class="text-xs font-bold text-slate-500 uppercase tracking-widest min-w-[60px] text-center">
                 ${game.reviewIndex === -1 ? 'LIVE' : `COUP ${game.reviewIndex + 1}`}
               </span>
-              <button onclick="window.handleReviewMove(1)" class="nav-btn p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white">
+              <button onclick="window.handleReviewMove(1)" class="nav-btn p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white">
                 <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
               </button>
-              <button onclick="window.handleReviewMove(2)" class="nav-btn p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white">
+              <button onclick="window.handleReviewMove(2)" class="nav-btn p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white">
                 <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
               </button>
             </div>` : ''}
 
             <!-- Player info -->
             <div class="w-full max-w-[min(90vw,512px)] flex justify-between items-start mt-4 px-2">
-               <div class="text-3xl font-mono font-bold tracking-tight ${whiteTimerClass}">
+               <div class="text-3xl font-mono font-bold tracking-tight ${whiteTimerClass} shrink-0 mr-4">
                  ${isGameWaiting && game.currentPlayer === 'white' ? 'Wait' : Timer.formatTime(whiteTime)}
                </div>
-               <div class="flex flex-col items-end text-right min-h-[48px] justify-start">
+               <div class="flex-1 flex flex-col items-end text-right min-h-[48px] justify-start overflow-hidden">
                  <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${game.playerColor === 'white' ? 'Vous' : 'Adversaire'}</span>
-                 <div class="flex items-center gap-2 flex-row-reverse">
+                 <div class="flex items-center gap-2 flex-row-reverse overflow-hidden">
                    <span class="text-xs font-black uppercase ${game.currentPlayer === 'white' ? 'text-blue-400' : 'text-white'}">BLANCS</span>
-                   <div class="flex flex-wrap gap-1 opacity-80 max-w-[120px] sm:max-w-none flex-row-reverse">
-                     ${eliminated.black.map(p => `<span class="text-[16px] leading-none" style="color: #020617; text-shadow: 0 1px 1px rgba(255,255,255,0.2)">${Board.pieceSymbols[p]}</span>`).join('')}
+                   <div class="flex flex-wrap gap-1 opacity-80 flex-row-reverse overflow-hidden">
+                     ${eliminated.black.map(p => `<span class="text-[16px] sm:text-[18px] leading-none" style="color: #020617; text-shadow: 0 1px 1px rgba(255,255,255,0.2)">${Board.pieceSymbols[p]}</span>`).join('')}
                    </div>
                  </div>
                </div>
@@ -179,7 +180,7 @@ export class Renderer {
 
         </div>
 
-        ${game.gameOver ? this.renderGameOverModal(game) : ''}
+        ${game.gameOver && !this.hideGameOver ? this.renderGameOverModal(game) : ''}
       </div>`;
 
     const historyDiv = document.querySelector('.history-scroll');
@@ -210,14 +211,15 @@ export class Renderer {
     }
 
     return `
-    <div class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] w-full max-w-sm px-6 animate-in slide-in-from-bottom duration-500">
-       <div class="glass-panel p-8 rounded-3xl border border-white/10 shadow-3xl text-center bg-slate-900/80 backdrop-blur-2xl">
-         <h1 class="text-2xl font-black text-white mb-1 tracking-tighter uppercase">${winTitle}</h1>
-         <p class="text-blue-400 text-xs font-bold mb-6 uppercase tracking-widest">${winMessage}</p>
+    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-full max-w-sm px-6 animate-in slide-in-from-bottom duration-500">
+       <div class="glass-panel p-6 sm:p-8 rounded-[2rem] border border-white/10 shadow-3xl text-center bg-slate-900/80 backdrop-blur-3xl">
+         <h1 class="text-xl sm:text-2xl font-black text-white mb-1 tracking-tighter uppercase">${winTitle}</h1>
+         <p class="text-blue-400 text-[10px] font-bold mb-6 uppercase tracking-widest">${winMessage}</p>
          
-         <div class="flex gap-2">
-           <button onclick="location.reload()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all">REJOUER</button>
-           <button onclick="location.reload()" class="flex-1 bg-slate-800 text-slate-400 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-slate-700 transition-colors">MENU</button>
+         <div class="grid grid-cols-2 gap-2">
+           <button onclick="location.reload()" class="bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-all">REJOUER</button>
+           <button onclick="window.handleHideGameOver()" class="bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold text-xs active:scale-95 transition-all">ANALYSER</button>
+           <button onclick="location.reload()" class="col-span-2 bg-slate-800 text-slate-500 py-2 rounded-xl font-bold text-[9px] uppercase tracking-widest hover:bg-slate-700 transition-colors mt-1">MENU PRINCIPAL</button>
          </div>
        </div>
     </div>`;

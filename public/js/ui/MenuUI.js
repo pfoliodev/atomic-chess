@@ -73,9 +73,9 @@ export class MenuUI {
 
             <button id="btn-create" class="w-full bg-slate-800 hover:bg-slate-700 text-white py-4 rounded-xl font-bold transition-all border border-slate-700 active:scale-[0.98]">CRÉER UN SALON</button>
             
-            <div class="flex gap-2">
-              <input type="text" id="inputCode" placeholder="CODE SALON" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-4 text-center font-mono font-bold text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500 transition-colors">
-              <button id="btn-join" class="bg-emerald-600 hover:bg-emerald-500 text-white px-6 rounded-xl font-bold transition-all active:scale-[0.98] shadow-lg shadow-emerald-900/10">REJOINDRE</button>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <input type="text" id="inputCode" placeholder="CODE SALON" class="w-full sm:flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-4 text-center font-mono font-bold text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500 transition-colors">
+              <button id="btn-join" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-xl font-bold transition-all active:scale-[0.98] shadow-lg shadow-emerald-900/10">REJOINDRE</button>
             </div>
           </div>
         </section>
