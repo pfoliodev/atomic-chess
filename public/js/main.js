@@ -1,4 +1,5 @@
 import { AtomicVariant } from './variants/AtomicVariant.js';
+import { PortalVariant } from './variants/PortalVariant.js';
 import { KingOfTheHillVariant } from './variants/KingOfTheHillVariant.js';
 import { StandardVariant } from './variants/StandardVariant.js';
 import { BattleRoyaleVariant } from './variants/BattleRoyaleVariant.js';
@@ -81,6 +82,8 @@ class App {
    */
   createVariant(variantName) {
     switch (variantName) {
+      case 'portal':
+        return new PortalVariant();
       case 'kingofthehill':
         return new KingOfTheHillVariant();
       case 'battleroyale':
